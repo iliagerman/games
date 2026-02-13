@@ -26,6 +26,20 @@
                 <button id="settings-menu-btn" style="background: #E65100; border-color: #FFB74D;">🏠 MAIN MENU</button>
                 <button id="settings-close-btn">CLOSE</button>
             </div>
+            <!-- Quiz Overlay -->
+            <div id="quiz-overlay" class="hidden">
+                <div id="quiz-container">
+                    <canvas id="quizCanvas" width="200" height="150"></canvas>
+                    <p id="quiz-question-text"></p>
+                    <div id="quiz-answers">
+                        <button class="quiz-answer-btn" data-index="0"></button>
+                        <button class="quiz-answer-btn" data-index="1"></button>
+                        <button class="quiz-answer-btn" data-index="2"></button>
+                        <button class="quiz-answer-btn" data-index="3"></button>
+                    </div>
+                    <p id="quiz-result"></p>
+                </div>
+            </div>
             <!-- World Selection Screen -->
             <div id="select-screen">
                 <h1>BLOCKY DASH</h1>
@@ -52,6 +66,28 @@
                         <span class="card-desc">Survive the dark!</span>
                     </button>
                 </div>
+            </div>
+            <!-- Level Selection Screen -->
+            <div id="level-screen" class="hidden">
+                <h1 id="level-title">Select Difficulty</h1>
+                <div id="level-cards">
+                    <button class="level-card easy-card" id="level-easy">
+                        <span class="card-icon">🟢</span>
+                        <span class="card-title">Easy</span>
+                        <span class="card-desc">Just run & collect!</span>
+                    </button>
+                    <button class="level-card medium-card" id="level-medium">
+                        <span class="card-icon">🟠</span>
+                        <span class="card-title">Medium</span>
+                        <span class="card-desc">Quiz collectibles!</span>
+                    </button>
+                    <button class="level-card hard-card" id="level-hard">
+                        <span class="card-icon">🔴</span>
+                        <span class="card-title">Hard</span>
+                        <span class="card-desc">Tough questions!</span>
+                    </button>
+                </div>
+                <button id="level-back-btn">⬅ BACK</button>
             </div>
             <!-- Start Screen (after selection) -->
             <div id="start-screen" class="hidden">

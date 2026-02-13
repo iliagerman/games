@@ -58,6 +58,7 @@ canvas {
 }
 
 #select-screen,
+#level-screen,
 #start-screen,
 #game-over-screen {
     background: rgba(0, 0, 0, 0.7);
@@ -179,17 +180,20 @@ button:active {
 @media (max-width: 500px) {
 
     #select-screen,
+    #level-screen,
     #start-screen,
     #game-over-screen {
         padding: 20px;
     }
 
-    #select-cards {
+    #select-cards,
+    #level-cards {
         flex-direction: column;
         align-items: center;
     }
 
-    .select-card {
+    .select-card,
+    .level-card {
         min-width: 140px;
         padding: 12px 18px;
     }
@@ -203,6 +207,151 @@ button:active {
 .scary-card {
     background: linear-gradient(135deg, #B71C1C 0%, #4A0000 50%, #1A1A1A 100%);
     border-color: #FF5252;
+}
+
+/* ═══ Level Selection ═══ */
+#level-screen {
+    max-width: 90%;
+}
+
+#level-screen h1 {
+    color: #FFD700;
+    font-size: clamp(24px, 5.5vw, 56px);
+    margin-bottom: 8px;
+}
+
+#level-cards {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.level-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 24px;
+    border: 4px solid rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    min-width: 140px;
+    box-shadow: inset -4px -4px 0 rgba(0, 0, 0, 0.4);
+}
+
+.level-card:hover {
+    transform: scale(1.06);
+}
+
+.level-card:active {
+    transform: scale(0.97);
+    box-shadow: inset 4px 4px 0 rgba(0, 0, 0, 0.5);
+}
+
+.easy-card {
+    background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 50%, #1B5E20 100%);
+    border-color: #A5D6A7;
+}
+
+.medium-card {
+    background: linear-gradient(135deg, #E65100 0%, #FF9800 50%, #BF360C 100%);
+    border-color: #FFCC80;
+}
+
+.hard-card {
+    background: linear-gradient(135deg, #B71C1C 0%, #F44336 50%, #7F0000 100%);
+    border-color: #EF9A9A;
+}
+
+#level-back-btn {
+    margin-top: 8px;
+    background: #455A64;
+    border-color: #90A4AE;
+}
+
+/* ═══ Quiz Overlay ═══ */
+#quiz-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto;
+    z-index: 25;
+}
+
+#quiz-container {
+    text-align: center;
+    color: white;
+    max-width: 90%;
+}
+
+#quizCanvas {
+    border: 3px solid #FFD700;
+    background: #1a1a2e;
+    margin-bottom: 10px;
+    max-width: 100%;
+}
+
+#quizCanvas.hidden {
+    display: none !important;
+}
+
+#quiz-question-text {
+    font-size: clamp(18px, 4vw, 32px);
+    color: #F7E414;
+    margin: 8px 0;
+    text-shadow: 2px 2px 0 #000;
+}
+
+#quiz-answers {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.quiz-answer-btn {
+    font-family: 'VT323', monospace;
+    font-size: clamp(16px, 3vw, 26px);
+    padding: 10px 16px;
+    background: #455A64;
+    color: white;
+    border: 3px solid #90A4AE;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.quiz-answer-btn:hover {
+    background: #546E7A;
+}
+
+.quiz-answer-btn.correct {
+    background: #2E7D32;
+    border-color: #A5D6A7;
+}
+
+.quiz-answer-btn.wrong {
+    background: #C62828;
+    border-color: #EF9A9A;
+}
+
+.quiz-answer-btn:disabled {
+    cursor: default;
+    opacity: 0.8;
+}
+
+#quiz-result {
+    font-size: clamp(18px, 4vw, 32px);
+    margin-top: 10px;
+    min-height: 1.5em;
 }
 
 /* ═══ Settings ═══ */
@@ -318,6 +467,7 @@ button:active {
     }
 
     #select-screen,
+    #level-screen,
     #start-screen,
     #game-over-screen {
         padding: 10px;
@@ -325,21 +475,25 @@ button:active {
         border-width: 2px;
     }
 
-    #select-screen h1 {
+    #select-screen h1,
+    #level-screen h1 {
         font-size: 28px;
         margin-bottom: 4px;
     }
 
-    #select-screen p {
+    #select-screen p,
+    #level-screen p {
         font-size: 14px;
         margin-bottom: 8px;
     }
 
-    #select-cards {
+    #select-cards,
+    #level-cards {
         gap: 8px;
     }
 
-    .select-card {
+    .select-card,
+    .level-card {
         padding: 6px 10px;
         min-width: 110px;
         border-width: 2px;
@@ -378,5 +532,36 @@ button:active {
     #start-btn,
     #restart-btn {
         margin-top: 5px;
+    }
+
+    /* Quiz overlay landscape */
+    #quiz-container {
+        max-width: 80%;
+    }
+
+    #quizCanvas {
+        width: 150px;
+        height: 112px;
+    }
+
+    #quiz-question-text {
+        font-size: 18px;
+        margin: 4px 0;
+    }
+
+    #quiz-answers {
+        gap: 6px;
+        max-width: 350px;
+    }
+
+    .quiz-answer-btn {
+        font-size: 16px;
+        padding: 6px 10px;
+        border-width: 2px;
+    }
+
+    #quiz-result {
+        font-size: 18px;
+        margin-top: 6px;
     }
 }

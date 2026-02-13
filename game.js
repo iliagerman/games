@@ -68,10 +68,13 @@ function playSound(type) {
 }
 
 // Game State
-let gameState = 'SELECT'; // SELECT, START, PLAYING, GAMEOVER
+let gameState = 'SELECT'; // SELECT, LEVEL, START, PLAYING, GAMEOVER
 let gameMode = null; // 'spongebob', 'cat', 'bluey', or 'scary'
+let gameLevel = 'easy'; // 'easy', 'medium', 'hard'
 let gameSpeed = 1.0; // 0.5 – 2.0, controlled by settings
 let settingsOpen = false;
+let quizActive = false;
+let currentQuiz = null;
 let score = 0;
 let lives = 5; // Start with 5 lives
 let sceneTimer = 0;
@@ -102,12 +105,26 @@ const settingsOverlay = document.getElementById('settings-overlay');
 const settingsCloseBtn = document.getElementById('settings-close-btn');
 const speedSlider = document.getElementById('speed-slider');
 const speedValue = document.getElementById('speed-value');
-const settingsMenuBtn = document.getElementById('settings-menu-btn'); // New button
+const settingsMenuBtn = document.getElementById('settings-menu-btn');
+const levelScreen = document.getElementById('level-screen');
+const levelTitle = document.getElementById('level-title');
+const levelEasyBtn = document.getElementById('level-easy');
+const levelMediumBtn = document.getElementById('level-medium');
+const levelHardBtn = document.getElementById('level-hard');
+const levelBackBtn = document.getElementById('level-back-btn');
+const quizOverlay = document.getElementById('quiz-overlay');
+const quizCanvas = document.getElementById('quizCanvas');
+const quizCtx = quizCanvas.getContext('2d');
+const quizQuestionText = document.getElementById('quiz-question-text');
+const quizAnswersDiv = document.getElementById('quiz-answers');
+const quizAnswerBtns = document.querySelectorAll('.quiz-answer-btn');
+const quizResult = document.getElementById('quiz-result');
 
 function selectMode(mode) {
     gameMode = mode;
     selectScreen.classList.add('hidden');
-    startScreen.classList.remove('hidden');
+    levelScreen.classList.remove('hidden');
+    gameState = 'LEVEL';
     const titles = {
         spongebob: "SpongeBob's Blocky Dash",
         cat: "Cat's Blocky Dash",
@@ -117,6 +134,13 @@ function selectMode(mode) {
     gameTitle.textContent = titles[mode] || "Blocky Dash";
 }
 
+function selectLevel(level) {
+    gameLevel = level;
+    levelScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
+    gameState = 'START';
+}
+
 // Event Listeners
 const modeButtons = { spongebob: selectSpongebob, cat: selectCat, bluey: selectBluey, scary: selectScary };
 Object.entries(modeButtons).forEach(([mode, btn]) => {
@@ -124,8 +148,23 @@ Object.entries(modeButtons).forEach(([mode, btn]) => {
     btn.addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); selectMode(mode); }, { passive: false });
 });
 
+// Level Selection
+const levelButtons = { easy: levelEasyBtn, medium: levelMediumBtn, hard: levelHardBtn };
+Object.entries(levelButtons).forEach(([level, btn]) => {
+    btn.addEventListener('click', () => { selectLevel(level); });
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); selectLevel(level); }, { passive: false });
+});
+levelBackBtn.addEventListener('click', () => {
+    levelScreen.classList.add('hidden');
+    selectScreen.classList.remove('hidden');
+    gameState = 'SELECT';
+    gameMode = null;
+});
+levelBackBtn.addEventListener('touchstart', (e) => { e.preventDefault(); levelBackBtn.click(); }, { passive: false });
+
 // Settings
 settingsBtn.addEventListener('click', () => {
+    if (quizActive) return;
     settingsOverlay.classList.remove('hidden');
     gameSpeed = parseFloat(speedSlider.value); // Ensure it's synced
 });
@@ -142,8 +181,11 @@ settingsMenuBtn.addEventListener('click', () => {
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
     settingsOverlay.classList.add('hidden');
+    levelScreen.classList.add('hidden');
+    quizOverlay.classList.add('hidden');
     settingsBtn.classList.add('hidden');
     menuBtn.classList.add('hidden');
+    quizActive = false;
 });
 settingsMenuBtn.addEventListener('touchstart', (e) => { e.preventDefault(); settingsMenuBtn.click(); }, { passive: false });
 speedSlider.addEventListener('input', (e) => {
@@ -190,6 +232,9 @@ menuBtn.addEventListener('click', () => {
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
     settingsOverlay.classList.add('hidden');
+    levelScreen.classList.add('hidden');
+    quizOverlay.classList.add('hidden');
+    quizActive = false;
     // Hide in-game buttons
     settingsBtn.classList.add('hidden');
     menuBtn.classList.add('hidden');
@@ -205,6 +250,7 @@ document.getElementById('game-container').addEventListener('touchmove', (e) => {
 }, { passive: false });
 
 function handleInput() {
+    if (quizActive) return;
     if (gameState === 'START') startGame();
     else if (gameState === 'PLAYING') playerJump();
     else if (gameState === 'GAMEOVER') resetGame();
@@ -243,10 +289,15 @@ function startGame() {
 function resetGame() {
     gameState = 'SELECT';
     gameMode = null;
+    gameLevel = 'easy';
+    quizActive = false;
+    currentQuiz = null;
     gameOverScreen.classList.add('hidden');
     startScreen.classList.add('hidden');
     settingsBtn.classList.add('hidden');
     settingsOverlay.classList.add('hidden');
+    levelScreen.classList.add('hidden');
+    quizOverlay.classList.add('hidden');
     settingsOpen = false;
     selectScreen.classList.remove('hidden');
     stopMusic();
@@ -349,6 +400,7 @@ let bgCharacters = [];
 function gameLoop() {
     if (gameState !== 'PLAYING') return;
     if (settingsOpen) { requestAnimationFrame(gameLoop); return; }
+    if (quizActive) { requestAnimationFrame(gameLoop); return; }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     gameTick++;
@@ -397,23 +449,23 @@ function updatePhysics() {
 
     // Fell into pit — lose a life and respawn
     if (player.y > 500) {
+        // Respawn above ground first
+        player.y = 200;
+        player.vy = 0;
+
         if (player.invulnerable <= 0) {
-            lives--;
             player.invulnerable = 60;
 
-            if (audioCtx && audioCtx.state !== 'suspended') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(200, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.4);
-                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.4);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.4);
+            if (gameLevel !== 'easy') {
+                // Medium/Hard: trigger quiz instead of instant damage
+                let quizType = Math.random() < 0.5 ? 'math' : 'picture';
+                showQuiz(quizType, 'pit');
+                return;
             }
+
+            // Easy: normal damage
+            lives--;
+            playHurtSound();
 
             if (lives <= 0) {
                 gameState = 'GAMEOVER';
@@ -424,9 +476,6 @@ function updatePhysics() {
                 return;
             }
         }
-        // Respawn above ground
-        player.y = 200;
-        player.vy = 0;
     }
 
     // Scroll speed (slowed down for better gameplay)
@@ -512,6 +561,7 @@ function spawnEntities() {
         else if (gameMode === 'scary') collectType = 'skull';
         collectibles.push({ x: 800, y: 250 - Math.random() * 50, width: 30, height: 30, type: collectType });
     }
+
 }
 
 function spawnObstacle() {
@@ -584,23 +634,18 @@ function checkCollisions() {
             player.y + player.height - padding > o.y + padding) {
 
             if (player.invulnerable <= 0) {
-                lives--;
                 player.invulnerable = 60; // 1s invincibility
 
-                // Hurt Sound
-                if (audioCtx && audioCtx.state !== 'suspended') {
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.2);
-                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
-                    osc.start();
-                    osc.stop(audioCtx.currentTime + 0.2);
+                if (gameLevel !== 'easy') {
+                    // Medium/Hard: trigger quiz instead of instant damage
+                    let quizType = Math.random() < 0.5 ? 'math' : 'picture';
+                    showQuiz(quizType, 'obstacle');
+                    return;
                 }
+
+                // Easy: normal damage
+                lives--;
+                playHurtSound();
 
                 if (lives <= 0) {
                     gameState = 'GAMEOVER';
@@ -625,8 +670,7 @@ function checkCollisions() {
             if (score % 10 === 0) {
                 if (lives < 6) {
                     lives++;
-                    playSound('collect'); // Re-use collect sound or make 'powerup'
-                    // Maybe powerup sound?
+                    playSound('collect');
                 }
             }
 
@@ -3208,3 +3252,609 @@ function drawUI() {
         ctx.fillText('❤️', 20 + i * 35, 80);
     }
 }
+
+// ═══ QUIZ SYSTEM ═══
+
+function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+function generateMathQuestion() {
+    let a, b, op, answer, questionText;
+    if (gameLevel === 'hard') {
+        let ops = ['+', '-', 'x'];
+        op = ops[Math.floor(Math.random() * ops.length)];
+        if (op === 'x') {
+            a = Math.floor(Math.random() * 12) + 1;
+            b = Math.floor(Math.random() * 12) + 1;
+            answer = a * b;
+            questionText = `${a} x ${b} = ?`;
+        } else if (op === '-') {
+            a = Math.floor(Math.random() * 100) + 1;
+            b = Math.floor(Math.random() * a) + 1;
+            answer = a - b;
+            questionText = `${a} - ${b} = ?`;
+        } else {
+            a = Math.floor(Math.random() * 100) + 1;
+            b = Math.floor(Math.random() * 100) + 1;
+            answer = a + b;
+            questionText = `${a} + ${b} = ?`;
+        }
+    } else {
+        // Medium (Hebrew)
+        let ops = ['+', '-'];
+        op = ops[Math.floor(Math.random() * ops.length)];
+        if (op === '-') {
+            a = Math.floor(Math.random() * 20) + 1;
+            b = Math.floor(Math.random() * a) + 1;
+            answer = a - b;
+            questionText = `? = ${b} - ${a} :כמה זה`;
+        } else {
+            a = Math.floor(Math.random() * 20) + 1;
+            b = Math.floor(Math.random() * 20) + 1;
+            answer = a + b;
+            questionText = `? = ${b} + ${a} :כמה זה`;
+        }
+    }
+
+    // Generate 3 wrong answers
+    let choices = [answer];
+    while (choices.length < 4) {
+        let offset = Math.floor(Math.random() * 10) + 1;
+        let wrong = answer + (Math.random() < 0.5 ? offset : -offset);
+        if (wrong < 0) wrong = answer + offset;
+        if (!choices.includes(wrong)) choices.push(wrong);
+    }
+
+    return {
+        question: questionText,
+        choices: shuffleArray(choices),
+        correctAnswer: answer
+    };
+}
+
+// Hebrew labels for medium picture vocab (keyed by English drawing name)
+const hebrewLabels = {
+    apple: 'תפוח', house: 'בית', sun: 'שמש', tree: 'עץ',
+    car: 'מכונית', fish: 'דג', star: 'כוכב', cat: 'חתול',
+    dog: 'כלב', ball: 'כדור', book: 'ספר', flower: 'פרח',
+    moon: 'ירח', heart: 'לב', cloud: 'ענן', boat: 'סירה'
+};
+
+function generatePictureQuestion() {
+    let vocab, displayVocab;
+    if (gameLevel === 'hard') {
+        vocab = ['guitar', 'bicycle', 'umbrella', 'rocket', 'butterfly', 'diamond', 'crown', 'castle', 'rainbow', 'volcano', 'snowflake', 'anchor', 'telescope', 'hourglass', 'lighthouse', 'octopus'];
+        displayVocab = null; // English labels
+    } else {
+        // Medium — Hebrew labels
+        vocab = ['apple', 'house', 'sun', 'tree', 'car', 'fish', 'star', 'cat', 'dog', 'ball', 'book', 'flower', 'moon', 'heart', 'cloud', 'boat'];
+        displayVocab = hebrewLabels;
+    }
+
+    let correctWord = vocab[Math.floor(Math.random() * vocab.length)];
+    let correctLabel = displayVocab ? displayVocab[correctWord] : correctWord;
+    let choices = [correctLabel];
+    let pool = vocab.filter(w => w !== correctWord);
+    shuffleArray(pool);
+    for (let i = 0; i < 3 && i < pool.length; i++) {
+        choices.push(displayVocab ? displayVocab[pool[i]] : pool[i]);
+    }
+
+    return {
+        question: displayVocab ? '?מה זה' : 'What is this?',
+        choices: shuffleArray(choices),
+        correctAnswer: correctLabel,
+        picture: correctWord // always English key for drawing
+    };
+}
+
+function drawQuizPicture(word) {
+    let c = quizCtx;
+    let w = quizCanvas.width;
+    let h = quizCanvas.height;
+    c.clearRect(0, 0, w, h);
+    c.fillStyle = '#1a1a2e';
+    c.fillRect(0, 0, w, h);
+
+    switch (word) {
+        case 'apple':
+            c.fillStyle = '#E53935';
+            c.beginPath(); c.arc(100, 85, 35, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#4CAF50';
+            c.fillRect(96, 42, 8, 18);
+            c.beginPath(); c.ellipse(110, 48, 12, 6, 0.4, 0, Math.PI * 2); c.fill();
+            break;
+        case 'house':
+            c.fillStyle = '#8D6E63';
+            c.fillRect(60, 70, 80, 70);
+            c.fillStyle = '#D32F2F';
+            c.beginPath(); c.moveTo(50, 70); c.lineTo(100, 25); c.lineTo(150, 70); c.fill();
+            c.fillStyle = '#FFEB3B';
+            c.fillRect(85, 100, 30, 40);
+            c.fillStyle = '#64B5F6';
+            c.fillRect(68, 85, 20, 20);
+            c.fillRect(112, 85, 20, 20);
+            break;
+        case 'sun':
+            c.fillStyle = '#FFD600';
+            c.beginPath(); c.arc(100, 75, 35, 0, Math.PI * 2); c.fill();
+            c.strokeStyle = '#FFD600'; c.lineWidth = 4;
+            for (let i = 0; i < 8; i++) {
+                let angle = (i / 8) * Math.PI * 2;
+                c.beginPath();
+                c.moveTo(100 + Math.cos(angle) * 42, 75 + Math.sin(angle) * 42);
+                c.lineTo(100 + Math.cos(angle) * 58, 75 + Math.sin(angle) * 58);
+                c.stroke();
+            }
+            break;
+        case 'tree':
+            c.fillStyle = '#5D4037';
+            c.fillRect(88, 80, 24, 60);
+            c.fillStyle = '#2E7D32';
+            c.beginPath(); c.moveTo(100, 15); c.lineTo(55, 85); c.lineTo(145, 85); c.fill();
+            c.beginPath(); c.moveTo(100, 35); c.lineTo(60, 100); c.lineTo(140, 100); c.fill();
+            break;
+        case 'car':
+            c.fillStyle = '#1565C0';
+            c.fillRect(40, 70, 120, 40);
+            c.fillRect(60, 45, 80, 30);
+            c.fillStyle = '#90CAF9';
+            c.fillRect(65, 50, 30, 22);
+            c.fillRect(105, 50, 30, 22);
+            c.fillStyle = '#333';
+            c.beginPath(); c.arc(70, 112, 14, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(130, 112, 14, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#888';
+            c.beginPath(); c.arc(70, 112, 6, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(130, 112, 6, 0, Math.PI * 2); c.fill();
+            break;
+        case 'fish':
+            c.fillStyle = '#FF9800';
+            c.beginPath(); c.ellipse(100, 75, 40, 22, 0, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#F57C00';
+            c.beginPath(); c.moveTo(140, 75); c.lineTo(170, 55); c.lineTo(170, 95); c.fill();
+            c.fillStyle = '#FFF';
+            c.beginPath(); c.arc(75, 70, 7, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#000';
+            c.beginPath(); c.arc(75, 70, 3, 0, Math.PI * 2); c.fill();
+            break;
+        case 'star':
+            c.fillStyle = '#FFD600';
+            c.beginPath();
+            for (let i = 0; i < 5; i++) {
+                let angle = (i * 4 * Math.PI / 5) - Math.PI / 2;
+                let x = 100 + Math.cos(angle) * 40;
+                let y = 75 + Math.sin(angle) * 40;
+                if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+            }
+            c.closePath(); c.fill();
+            break;
+        case 'cat':
+            c.fillStyle = '#FF8C00';
+            c.beginPath(); c.ellipse(100, 90, 30, 25, 0, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(100, 55, 22, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.moveTo(80, 40); c.lineTo(74, 20); c.lineTo(90, 38); c.fill();
+            c.beginPath(); c.moveTo(120, 40); c.lineTo(126, 20); c.lineTo(110, 38); c.fill();
+            c.fillStyle = '#4CAF50';
+            c.beginPath(); c.arc(90, 52, 5, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(110, 52, 5, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#000';
+            c.beginPath(); c.ellipse(90, 52, 2, 4, 0, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.ellipse(110, 52, 2, 4, 0, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#FFB6C1';
+            c.beginPath(); c.moveTo(100, 60); c.lineTo(97, 57); c.lineTo(103, 57); c.fill();
+            c.strokeStyle = '#DDD'; c.lineWidth = 1;
+            c.beginPath(); c.moveTo(85, 58); c.lineTo(65, 55); c.stroke();
+            c.beginPath(); c.moveTo(85, 62); c.lineTo(65, 65); c.stroke();
+            c.beginPath(); c.moveTo(115, 58); c.lineTo(135, 55); c.stroke();
+            c.beginPath(); c.moveTo(115, 62); c.lineTo(135, 65); c.stroke();
+            break;
+        case 'dog':
+            c.fillStyle = '#8D6E63';
+            c.beginPath(); c.ellipse(100, 90, 30, 25, 0, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(100, 55, 22, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#6D4C41';
+            c.beginPath(); c.ellipse(78, 42, 10, 18, -0.3, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.ellipse(122, 42, 10, 18, 0.3, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#FFF';
+            c.beginPath(); c.arc(90, 52, 5, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(110, 52, 5, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#000';
+            c.beginPath(); c.arc(90, 52, 2, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(110, 52, 2, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#333';
+            c.beginPath(); c.ellipse(100, 63, 6, 4, 0, 0, Math.PI * 2); c.fill();
+            c.strokeStyle = '#333'; c.lineWidth = 1.5;
+            c.beginPath(); c.arc(100, 70, 8, 0, Math.PI); c.stroke();
+            break;
+        case 'ball':
+            c.fillStyle = '#F44336';
+            c.beginPath(); c.arc(100, 75, 35, 0, Math.PI * 2); c.fill();
+            c.strokeStyle = '#FFF'; c.lineWidth = 3;
+            c.beginPath(); c.arc(100, 75, 35, -0.5, 0.5); c.stroke();
+            c.beginPath(); c.arc(100, 75, 35, Math.PI - 0.5, Math.PI + 0.5); c.stroke();
+            c.fillStyle = 'rgba(255,255,255,0.3)';
+            c.beginPath(); c.ellipse(85, 60, 12, 8, -0.5, 0, Math.PI * 2); c.fill();
+            break;
+        case 'book':
+            c.fillStyle = '#1565C0';
+            c.fillRect(60, 40, 80, 80);
+            c.fillStyle = '#0D47A1';
+            c.fillRect(60, 40, 10, 80);
+            c.fillStyle = '#FFF';
+            c.fillRect(75, 55, 55, 4);
+            c.fillRect(75, 65, 45, 4);
+            c.fillRect(75, 75, 50, 4);
+            c.strokeStyle = '#0D47A1'; c.lineWidth = 2;
+            c.strokeRect(60, 40, 80, 80);
+            break;
+        case 'flower':
+            c.fillStyle = '#4CAF50';
+            c.fillRect(96, 80, 8, 60);
+            c.fillStyle = '#4CAF50';
+            c.beginPath(); c.ellipse(80, 100, 16, 8, -0.5, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.ellipse(120, 105, 16, 8, 0.5, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#E91E63';
+            for (let i = 0; i < 6; i++) {
+                let angle = (i / 6) * Math.PI * 2;
+                c.beginPath();
+                c.arc(100 + Math.cos(angle) * 18, 60 + Math.sin(angle) * 18, 12, 0, Math.PI * 2);
+                c.fill();
+            }
+            c.fillStyle = '#FFEB3B';
+            c.beginPath(); c.arc(100, 60, 10, 0, Math.PI * 2); c.fill();
+            break;
+        case 'moon':
+            c.fillStyle = '#FDD835';
+            c.beginPath(); c.arc(100, 75, 35, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#1a1a2e';
+            c.beginPath(); c.arc(118, 65, 30, 0, Math.PI * 2); c.fill();
+            break;
+        case 'heart':
+            c.fillStyle = '#E53935';
+            c.beginPath();
+            c.moveTo(100, 110);
+            c.bezierCurveTo(100, 100, 60, 40, 100, 55);
+            c.bezierCurveTo(140, 40, 100, 100, 100, 110);
+            c.fill();
+            c.beginPath(); c.arc(80, 58, 22, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(120, 58, 22, 0, Math.PI * 2); c.fill();
+            break;
+        case 'cloud':
+            c.fillStyle = '#ECEFF1';
+            c.beginPath(); c.arc(80, 80, 25, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(110, 70, 30, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(135, 80, 22, 0, Math.PI * 2); c.fill();
+            c.fillRect(75, 80, 65, 25);
+            break;
+        case 'boat':
+            c.fillStyle = '#795548';
+            c.beginPath(); c.moveTo(40, 90); c.lineTo(60, 120); c.lineTo(140, 120); c.lineTo(160, 90); c.closePath(); c.fill();
+            c.fillStyle = '#8D6E63';
+            c.fillRect(96, 40, 8, 50);
+            c.fillStyle = '#FFF';
+            c.beginPath(); c.moveTo(104, 45); c.lineTo(145, 70); c.lineTo(104, 85); c.fill();
+            c.fillStyle = '#1565C0';
+            c.fillRect(0, 115, 200, 35);
+            break;
+        // Hard vocab
+        case 'guitar':
+            c.fillStyle = '#8D6E63';
+            c.fillRect(95, 15, 10, 80);
+            c.fillStyle = '#D4A373';
+            c.beginPath(); c.ellipse(100, 105, 30, 25, 0, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#5D4037';
+            c.beginPath(); c.arc(100, 105, 8, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#FFD600';
+            c.fillRect(90, 15, 20, 12);
+            c.strokeStyle = '#999'; c.lineWidth = 1;
+            for (let i = 0; i < 4; i++) c.beginPath(), c.moveTo(96 + i * 3, 27), c.lineTo(96 + i * 3, 95), c.stroke();
+            break;
+        case 'bicycle':
+            c.strokeStyle = '#F44336'; c.lineWidth = 3;
+            c.beginPath(); c.arc(60, 95, 25, 0, Math.PI * 2); c.stroke();
+            c.beginPath(); c.arc(140, 95, 25, 0, Math.PI * 2); c.stroke();
+            c.strokeStyle = '#333'; c.lineWidth = 3;
+            c.beginPath(); c.moveTo(60, 95); c.lineTo(90, 65); c.lineTo(120, 65); c.lineTo(140, 95); c.stroke();
+            c.beginPath(); c.moveTo(90, 65); c.lineTo(100, 95); c.lineTo(120, 65); c.stroke();
+            c.fillStyle = '#333';
+            c.beginPath(); c.moveTo(82, 55); c.lineTo(98, 55); c.lineTo(90, 65); c.fill();
+            c.fillRect(95, 90, 20, 4);
+            break;
+        case 'umbrella':
+            c.fillStyle = '#E53935';
+            c.beginPath(); c.arc(100, 60, 50, Math.PI, 0); c.fill();
+            c.fillStyle = '#C62828';
+            c.beginPath(); c.arc(75, 60, 25, Math.PI, 0); c.fill();
+            c.fillStyle = '#E53935';
+            c.beginPath(); c.arc(100, 60, 25, Math.PI, 0); c.fill();
+            c.fillStyle = '#C62828';
+            c.beginPath(); c.arc(125, 60, 25, Math.PI, 0); c.fill();
+            c.strokeStyle = '#5D4037'; c.lineWidth = 4;
+            c.beginPath(); c.moveTo(100, 60); c.lineTo(100, 130); c.stroke();
+            c.beginPath(); c.arc(110, 130, 10, Math.PI * 0.5, Math.PI); c.stroke();
+            break;
+        case 'rocket':
+            c.fillStyle = '#CFD8DC';
+            c.beginPath(); c.moveTo(100, 15); c.lineTo(80, 80); c.lineTo(120, 80); c.closePath(); c.fill();
+            c.fillStyle = '#CFD8DC';
+            c.fillRect(80, 80, 40, 30);
+            c.fillStyle = '#F44336';
+            c.beginPath(); c.moveTo(80, 110); c.lineTo(65, 130); c.lineTo(80, 95); c.fill();
+            c.beginPath(); c.moveTo(120, 110); c.lineTo(135, 130); c.lineTo(120, 95); c.fill();
+            c.fillStyle = '#1565C0';
+            c.beginPath(); c.arc(100, 65, 10, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#64B5F6';
+            c.beginPath(); c.arc(100, 65, 6, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#FF6D00';
+            c.beginPath(); c.moveTo(88, 110); c.lineTo(100, 140); c.lineTo(112, 110); c.fill();
+            c.fillStyle = '#FFAB00';
+            c.beginPath(); c.moveTo(92, 110); c.lineTo(100, 130); c.lineTo(108, 110); c.fill();
+            break;
+        case 'butterfly':
+            c.fillStyle = '#7B1FA2';
+            c.beginPath(); c.ellipse(75, 60, 25, 20, -0.3, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.ellipse(125, 60, 25, 20, 0.3, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#CE93D8';
+            c.beginPath(); c.ellipse(80, 90, 18, 15, -0.3, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.ellipse(120, 90, 18, 15, 0.3, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#4A148C';
+            c.fillRect(97, 45, 6, 55);
+            c.strokeStyle = '#4A148C'; c.lineWidth = 2;
+            c.beginPath(); c.moveTo(97, 48); c.quadraticCurveTo(80, 25, 85, 20); c.stroke();
+            c.beginPath(); c.moveTo(103, 48); c.quadraticCurveTo(120, 25, 115, 20); c.stroke();
+            c.fillStyle = '#4A148C';
+            c.beginPath(); c.arc(85, 20, 3, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(115, 20, 3, 0, Math.PI * 2); c.fill();
+            break;
+        case 'diamond':
+            c.fillStyle = '#00BCD4';
+            c.beginPath(); c.moveTo(100, 20); c.lineTo(60, 65); c.lineTo(100, 130); c.lineTo(140, 65); c.closePath(); c.fill();
+            c.fillStyle = '#26C6DA';
+            c.beginPath(); c.moveTo(100, 20); c.lineTo(80, 65); c.lineTo(100, 130); c.closePath(); c.fill();
+            c.fillStyle = 'rgba(255,255,255,0.3)';
+            c.beginPath(); c.moveTo(100, 20); c.lineTo(80, 65); c.lineTo(100, 50); c.closePath(); c.fill();
+            break;
+        case 'crown':
+            c.fillStyle = '#FFD600';
+            c.fillRect(55, 70, 90, 50);
+            c.beginPath(); c.moveTo(55, 70); c.lineTo(55, 35); c.lineTo(78, 55); c.lineTo(100, 25); c.lineTo(122, 55); c.lineTo(145, 35); c.lineTo(145, 70); c.fill();
+            c.fillStyle = '#E53935';
+            c.beginPath(); c.arc(75, 85, 6, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(100, 85, 6, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(125, 85, 6, 0, Math.PI * 2); c.fill();
+            break;
+        case 'castle':
+            c.fillStyle = '#9E9E9E';
+            c.fillRect(50, 50, 100, 90);
+            for (let i = 0; i < 5; i++) {
+                c.fillRect(48 + i * 25, 35, 15, 20);
+            }
+            c.fillStyle = '#5D4037';
+            c.beginPath(); c.arc(100, 120, 18, Math.PI, 0); c.fill();
+            c.fillRect(82, 120, 36, 20);
+            c.fillStyle = '#1565C0';
+            c.fillRect(62, 70, 16, 20);
+            c.fillRect(122, 70, 16, 20);
+            break;
+        case 'rainbow':
+            let colors = ['#E53935', '#FF9800', '#FFEB3B', '#4CAF50', '#2196F3', '#9C27B0'];
+            for (let i = 0; i < colors.length; i++) {
+                c.strokeStyle = colors[i]; c.lineWidth = 8;
+                c.beginPath(); c.arc(100, 110, 60 - i * 8, Math.PI, 0); c.stroke();
+            }
+            break;
+        case 'volcano':
+            c.fillStyle = '#5D4037';
+            c.beginPath(); c.moveTo(100, 30); c.lineTo(35, 130); c.lineTo(165, 130); c.closePath(); c.fill();
+            c.fillStyle = '#3E2723';
+            c.beginPath(); c.moveTo(100, 30); c.lineTo(75, 130); c.lineTo(35, 130); c.closePath(); c.fill();
+            c.fillStyle = '#E53935';
+            c.beginPath(); c.ellipse(100, 32, 15, 8, 0, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#FF6D00';
+            c.beginPath(); c.moveTo(90, 32); c.lineTo(85, 10); c.lineTo(100, 25); c.fill();
+            c.beginPath(); c.moveTo(105, 30); c.lineTo(115, 8); c.lineTo(100, 22); c.fill();
+            c.beginPath(); c.moveTo(98, 28); c.lineTo(95, 5); c.lineTo(102, 18); c.fill();
+            break;
+        case 'snowflake':
+            c.strokeStyle = '#90CAF9'; c.lineWidth = 3;
+            for (let i = 0; i < 6; i++) {
+                let angle = (i / 6) * Math.PI * 2;
+                let cx = 100, cy = 75;
+                let ex = cx + Math.cos(angle) * 45, ey = cy + Math.sin(angle) * 45;
+                c.beginPath(); c.moveTo(cx, cy); c.lineTo(ex, ey); c.stroke();
+                let bx = cx + Math.cos(angle) * 25, by = cy + Math.sin(angle) * 25;
+                c.beginPath();
+                c.moveTo(bx, by);
+                c.lineTo(bx + Math.cos(angle + 0.6) * 12, by + Math.sin(angle + 0.6) * 12);
+                c.stroke();
+                c.beginPath();
+                c.moveTo(bx, by);
+                c.lineTo(bx + Math.cos(angle - 0.6) * 12, by + Math.sin(angle - 0.6) * 12);
+                c.stroke();
+            }
+            break;
+        case 'anchor':
+            c.strokeStyle = '#546E7A'; c.lineWidth = 6;
+            c.beginPath(); c.moveTo(100, 25); c.lineTo(100, 120); c.stroke();
+            c.beginPath(); c.arc(100, 120, 30, 0, Math.PI); c.stroke();
+            c.beginPath(); c.moveTo(65, 55); c.lineTo(135, 55); c.stroke();
+            c.fillStyle = '#546E7A';
+            c.beginPath(); c.arc(100, 22, 10, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#1a1a2e';
+            c.beginPath(); c.arc(100, 22, 5, 0, Math.PI * 2); c.fill();
+            break;
+        case 'telescope':
+            c.fillStyle = '#5D4037';
+            c.save(); c.translate(100, 75); c.rotate(-0.5);
+            c.fillRect(-50, -8, 100, 16);
+            c.fillStyle = '#8D6E63';
+            c.fillRect(40, -10, 25, 20);
+            c.fillStyle = '#1565C0';
+            c.beginPath(); c.arc(65, 0, 10, 0, Math.PI * 2); c.fill();
+            c.restore();
+            c.fillStyle = '#5D4037';
+            c.beginPath(); c.moveTo(90, 95); c.lineTo(70, 135); c.lineTo(78, 135); c.lineTo(95, 100); c.fill();
+            c.beginPath(); c.moveTo(110, 95); c.lineTo(130, 135); c.lineTo(122, 135); c.lineTo(105, 100); c.fill();
+            break;
+        case 'hourglass':
+            c.fillStyle = '#8D6E63';
+            c.fillRect(70, 20, 60, 8);
+            c.fillRect(70, 122, 60, 8);
+            c.strokeStyle = '#8D6E63'; c.lineWidth = 3;
+            c.beginPath(); c.moveTo(75, 28); c.lineTo(100, 75); c.lineTo(125, 28); c.stroke();
+            c.beginPath(); c.moveTo(75, 122); c.lineTo(100, 75); c.lineTo(125, 122); c.stroke();
+            c.fillStyle = '#FFD54F';
+            c.beginPath(); c.moveTo(80, 122); c.lineTo(100, 90); c.lineTo(120, 122); c.fill();
+            c.fillStyle = '#FFE082';
+            c.beginPath(); c.moveTo(90, 28); c.lineTo(100, 45); c.lineTo(110, 28); c.fill();
+            break;
+        case 'lighthouse':
+            c.fillStyle = '#FFF';
+            c.fillRect(80, 30, 40, 100);
+            c.fillStyle = '#E53935';
+            c.fillRect(80, 50, 40, 15);
+            c.fillRect(80, 85, 40, 15);
+            c.fillStyle = '#FFD600';
+            c.fillRect(75, 20, 50, 15);
+            c.fillStyle = '#FFEB3B';
+            c.beginPath(); c.moveTo(60, 27); c.lineTo(75, 27); c.lineTo(75, 20); c.fill();
+            c.beginPath(); c.moveTo(140, 27); c.lineTo(125, 27); c.lineTo(125, 20); c.fill();
+            c.fillStyle = '#1565C0';
+            c.fillRect(50, 125, 100, 15);
+            break;
+        case 'octopus':
+            c.fillStyle = '#E91E63';
+            c.beginPath(); c.ellipse(100, 55, 30, 25, 0, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#FFF';
+            c.beginPath(); c.arc(88, 50, 6, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(112, 50, 6, 0, Math.PI * 2); c.fill();
+            c.fillStyle = '#000';
+            c.beginPath(); c.arc(88, 50, 3, 0, Math.PI * 2); c.fill();
+            c.beginPath(); c.arc(112, 50, 3, 0, Math.PI * 2); c.fill();
+            c.strokeStyle = '#E91E63'; c.lineWidth = 6;
+            for (let i = 0; i < 8; i++) {
+                let startX = 75 + i * 7;
+                c.beginPath();
+                c.moveTo(startX, 75);
+                c.quadraticCurveTo(startX + (i % 2 === 0 ? 10 : -10), 105, startX + (i % 2 === 0 ? 5 : -5), 130);
+                c.stroke();
+            }
+            break;
+        default:
+            // Fallback: draw the word as text
+            c.fillStyle = '#FFF';
+            c.font = 'bold 28px "VT323", monospace';
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillText(word, w / 2, h / 2);
+            c.textAlign = 'start';
+            c.textBaseline = 'alphabetic';
+            break;
+    }
+}
+
+function playHurtSound() {
+    if (audioCtx && audioCtx.state !== 'suspended') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+    }
+}
+
+function showQuiz(quizType, damageSource) {
+    quizActive = true;
+
+    if (quizType === 'math') {
+        currentQuiz = generateMathQuestion();
+        quizCanvas.classList.add('hidden');
+    } else {
+        currentQuiz = generatePictureQuestion();
+        quizCanvas.classList.remove('hidden');
+        drawQuizPicture(currentQuiz.picture);
+    }
+
+    currentQuiz.damageSource = damageSource; // 'obstacle' or 'pit'
+
+    // Set text direction for Hebrew (medium) vs English (hard)
+    let isHebrew = gameLevel === 'medium';
+    quizQuestionText.style.direction = isHebrew ? 'rtl' : 'ltr';
+    quizResult.style.direction = isHebrew ? 'rtl' : 'ltr';
+
+    quizQuestionText.textContent = currentQuiz.question;
+    quizResult.textContent = '';
+    quizResult.style.color = '';
+
+    quizAnswerBtns.forEach((btn, i) => {
+        btn.textContent = currentQuiz.choices[i];
+        btn.className = 'quiz-answer-btn';
+        btn.disabled = false;
+    });
+
+    quizOverlay.classList.remove('hidden');
+}
+
+function handleQuizAnswer(selectedIndex) {
+    let selected = currentQuiz.choices[selectedIndex];
+    let correct = currentQuiz.correctAnswer;
+    let isCorrect = selected === correct;
+
+    // Highlight buttons
+    quizAnswerBtns.forEach((btn, i) => {
+        btn.disabled = true;
+        if (currentQuiz.choices[i] === correct) {
+            btn.classList.add('correct');
+        }
+        if (i === selectedIndex && !isCorrect) {
+            btn.classList.add('wrong');
+        }
+    });
+
+    if (isCorrect) {
+        score += 100;
+        quizResult.textContent = gameLevel === 'medium' ? '!נכון! +100 בלי נזק' : 'CORRECT! +100 No damage!';
+        quizResult.style.color = '#4CAF50';
+    } else {
+        // Wrong answer: take the damage
+        lives--;
+        playHurtSound();
+        quizResult.textContent = gameLevel === 'medium'
+            ? 'לא נכון! -1 חיים. תשובה: ' + correct
+            : 'WRONG! -1 Life. Answer: ' + correct;
+        quizResult.style.color = '#F44336';
+    }
+
+    setTimeout(() => {
+        quizOverlay.classList.add('hidden');
+        quizActive = false;
+        currentQuiz = null;
+
+        // Check game over after quiz closes (if wrong answer killed them)
+        if (lives <= 0) {
+            gameState = 'GAMEOVER';
+            gameOverScreen.classList.remove('hidden');
+            finalScoreDisplay.innerText = score;
+            playSound('gameover');
+            stopMusic();
+        }
+    }, 2000);
+}
+
+// Quiz answer button listeners
+quizAnswerBtns.forEach((btn, i) => {
+    btn.addEventListener('click', () => { if (!btn.disabled) handleQuizAnswer(i); });
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); if (!btn.disabled) handleQuizAnswer(i); }, { passive: false });
+});
