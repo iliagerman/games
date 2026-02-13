@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SpongeBob Minecraft Adventure</title>
+    <title>Blocky Dash Adventure</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -12,9 +12,26 @@
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
         <div id="ui-layer">
-            <!-- Score removed to prevent overlap with canvas drawing -->
-            <div id="start-screen">
-                <h1>SpongeBob's Blocky Dash</h1>
+            <!-- World Selection Screen -->
+            <div id="select-screen">
+                <h1>BLOCKY DASH</h1>
+                <p>Choose Your World</p>
+                <div id="select-cards">
+                    <button class="select-card spongebob-card" id="select-spongebob">
+                        <span class="card-icon">🧽</span>
+                        <span class="card-title">SpongeBob's Blocky Dash</span>
+                        <span class="card-desc">Dive into Bikini Bottom!</span>
+                    </button>
+                    <button class="select-card cat-card" id="select-cat">
+                        <span class="card-icon">🐱</span>
+                        <span class="card-title">Cat's Blocky Dash</span>
+                        <span class="card-desc">Pounce through Cat World!</span>
+                    </button>
+                </div>
+            </div>
+            <!-- Start Screen (after selection) -->
+            <div id="start-screen" class="hidden">
+                <h1 id="game-title">SpongeBob's Blocky Dash</h1>
                 <p>Press SPACE or TAP to Jump</p>
                 <button id="start-btn">START GAME</button>
             </div>

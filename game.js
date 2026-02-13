@@ -50,7 +50,8 @@ function playSound(type) {
 }
 
 // Game State
-let gameState = 'START'; // START, PLAYING, GAMEOVER
+let gameState = 'SELECT'; // SELECT, START, PLAYING, GAMEOVER
+let gameMode = null; // 'spongebob' or 'cat'
 let score = 0;
 let lives = 5; // Start with 5 lives
 let sceneTimer = 0;
@@ -64,14 +65,33 @@ let musicInterval = null;
 let noteIndex = 0;
 
 // Elements
+const selectScreen = document.getElementById('select-screen');
 const startScreen = document.getElementById('start-screen');
 const gameOverScreen = document.getElementById('game-over-screen');
+const gameTitle = document.getElementById('game-title');
 const scoreDisplay = document.getElementById('score');
 const finalScoreDisplay = document.getElementById('final-score');
 const startBtn = document.getElementById('start-btn');
 const restartBtn = document.getElementById('restart-btn');
+const selectSpongebob = document.getElementById('select-spongebob');
+const selectCat = document.getElementById('select-cat');
+
+function selectMode(mode) {
+    gameMode = mode;
+    selectScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
+    if (mode === 'spongebob') {
+        gameTitle.textContent = "SpongeBob's Blocky Dash";
+    } else {
+        gameTitle.textContent = "Cat's Blocky Dash";
+    }
+}
 
 // Event Listeners
+selectSpongebob.addEventListener('click', () => { initAudio(); selectMode('spongebob'); });
+selectCat.addEventListener('click', () => { initAudio(); selectMode('cat'); });
+selectSpongebob.addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); selectMode('spongebob'); }, { passive: false });
+selectCat.addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); selectMode('cat'); }, { passive: false });
 startBtn.addEventListener('click', () => { initAudio(); startGame(); });
 restartBtn.addEventListener('click', () => { initAudio(); resetGame(); });
 window.addEventListener('keydown', (e) => {
@@ -117,7 +137,7 @@ function startGame() {
     score = 0;
     lives = 5; // Reset lives
     sceneTimer = 0;
-    currentScene = 'BIKINI_BOTTOM';
+    currentScene = (gameMode === 'cat') ? 'COZY_HOUSE' : 'BIKINI_BOTTOM';
 
     // Reset entities
     player.y = 300;
@@ -138,9 +158,11 @@ function startGame() {
 }
 
 function resetGame() {
-    gameState = 'START';
+    gameState = 'SELECT';
+    gameMode = null;
     gameOverScreen.classList.add('hidden');
-    startScreen.classList.remove('hidden');
+    startScreen.classList.add('hidden');
+    selectScreen.classList.remove('hidden');
     stopMusic();
 }
 
@@ -149,12 +171,23 @@ function startMusic() {
     if (musicInterval) clearInterval(musicInterval);
     noteIndex = 0;
     // Simple cheerful melody (C Major scale-ish)
-    const melody = [
-        392.00, 0, 392.00, 440.00, 392.00, 0, 493.88, 523.25, // G, G, A, G, B, C
-        523.25, 0, 392.00, 329.63, 261.63, 0, 293.66, 329.63, // C, G, E, C, D, E (SpongeBob-ish feel)
-        392.00, 0, 392.00, 392.00, 440.00, 0, 392.00, 349.23, // G, G, G, A, G, F
-        329.63, 0, 293.66, 0, 261.63, 0, 261.63, 0            // E, D, C, C
-    ];
+    let melody;
+    if (gameMode === 'cat') {
+        // Playful cat melody (bouncy, curious feel)
+        melody = [
+            523.25, 0, 659.25, 783.99, 659.25, 0, 523.25, 0,   // C, E, G, E, C
+            783.99, 0, 698.46, 659.25, 587.33, 0, 523.25, 0,   // G, F, E, D, C
+            440.00, 0, 523.25, 587.33, 659.25, 0, 783.99, 0,   // A, C, D, E, G
+            698.46, 0, 659.25, 0, 587.33, 0, 523.25, 0         // F, E, D, C
+        ];
+    } else {
+        melody = [
+            392.00, 0, 392.00, 440.00, 392.00, 0, 493.88, 523.25, // G, G, A, G, B, C
+            523.25, 0, 392.00, 329.63, 261.63, 0, 293.66, 329.63, // C, G, E, C, D, E (SpongeBob-ish feel)
+            392.00, 0, 392.00, 392.00, 440.00, 0, 392.00, 349.23, // G, G, G, A, G, F
+            329.63, 0, 293.66, 0, 261.63, 0, 261.63, 0            // E, D, C, C
+        ];
+    }
 
     musicInterval = setInterval(() => {
         const freq = melody[noteIndex % melody.length];
@@ -259,18 +292,24 @@ function updatePhysics() {
 function spawnEntities() {
     // 1. Bg Characters (in the background, smaller & higher)
     if (Math.random() < 0.005) {
-        const friends = ['Patrick', 'Squidward', 'Gary'];
-        const type = friends[Math.floor(Math.random() * friends.length)];
+        let type;
+        if (gameMode === 'cat') {
+            const catFriends = ['Kitten', 'FatCat', 'BlackCat'];
+            type = catFriends[Math.floor(Math.random() * catFriends.length)];
+        } else {
+            const friends = ['Patrick', 'Squidward', 'Gary'];
+            type = friends[Math.floor(Math.random() * friends.length)];
+        }
         bgCharacters.push({
             x: 800,
-            y: 200 + Math.random() * 80, // Mid-background, NOT on the course
+            y: 200 + Math.random() * 80,
             width: 25,
             height: 38,
             type: type
         });
     }
 
-    // 2. Obstacles (only blocks now — jellyfish are background creatures)
+    // 2. Obstacles (only blocks)
     if (obstacles.length === 0 || (800 - obstacles[obstacles.length - 1].x > 300)) {
         if (Math.random() < 0.01) {
             const typeProb = Math.random();
@@ -285,24 +324,31 @@ function spawnEntities() {
         }
     }
 
-    // 3. Background swimming creatures (jellyfish & fish — NOT enemies)
+    // 3. Background creatures
     if (Math.random() < 0.008 && bgCreatures.length < 8) {
-        const creatureTypes = ['jellyfish', 'fish_blue', 'fish_yellow', 'fish_green'];
-        const type = creatureTypes[Math.floor(Math.random() * creatureTypes.length)];
-        const yPos = 80 + Math.random() * 250; // Swim anywhere above the ground
+        let type;
+        if (gameMode === 'cat') {
+            const catCreatures = ['butterfly', 'mouse', 'bird', 'dragonfly'];
+            type = catCreatures[Math.floor(Math.random() * catCreatures.length)];
+        } else {
+            const creatureTypes = ['jellyfish', 'fish_blue', 'fish_yellow', 'fish_green'];
+            type = creatureTypes[Math.floor(Math.random() * creatureTypes.length)];
+        }
+        const yPos = 80 + Math.random() * 250;
         bgCreatures.push({
             x: 820,
             y: yPos,
             type: type,
-            speed: 0.6 + Math.random() * 0.8, // Gentle swim speed
+            speed: 0.6 + Math.random() * 0.8,
             wobbleSpeed: 0.02 + Math.random() * 0.03,
             wobbleOffset: Math.random() * Math.PI * 2
         });
     }
 
-    // 3. Collectibles
+    // 4. Collectibles
     if (Math.random() < 0.01) {
-        collectibles.push({ x: 800, y: 250 - Math.random() * 50, width: 30, height: 30, type: 'patty' });
+        let collectType = (gameMode === 'cat') ? 'fish' : 'patty';
+        collectibles.push({ x: 800, y: 250 - Math.random() * 50, width: 30, height: 30, type: collectType });
     }
 }
 
@@ -377,7 +423,12 @@ function updateScene() {
 }
 
 function switchScene() {
-    const sequence = ['BIKINI_BOTTOM', 'KELP_FOREST', 'GOO_LAGOON', 'JELLYFISH_FIELDS', 'CHUM_BUCKET', 'DEEP_OCEAN', 'GLOVE_WORLD', 'KRUSTY_KRAB', 'FLYING_DUTCHMAN', 'BOATING_SCHOOL'];
+    let sequence;
+    if (gameMode === 'cat') {
+        sequence = ['COZY_HOUSE', 'GARDEN', 'ROOFTOP', 'FISH_MARKET', 'ALLEY', 'YARNIA', 'CATNIP_FIELDS', 'MOONLIT_ROOF', 'CAT_CAFE', 'LASER_LAND'];
+    } else {
+        sequence = ['BIKINI_BOTTOM', 'KELP_FOREST', 'GOO_LAGOON', 'JELLYFISH_FIELDS', 'CHUM_BUCKET', 'DEEP_OCEAN', 'GLOVE_WORLD', 'KRUSTY_KRAB', 'FLYING_DUTCHMAN', 'BOATING_SCHOOL'];
+    }
     let idx = sequence.indexOf(currentScene);
     idx = (idx + 1) % sequence.length;
     currentScene = sequence[idx];
@@ -396,6 +447,17 @@ function drawBackground() {
     if (currentScene === 'GLOVE_WORLD') skyColor = '#9B59B6';
     if (currentScene === 'FLYING_DUTCHMAN') skyColor = '#1A3A2A';
     if (currentScene === 'BOATING_SCHOOL') skyColor = '#87CEEB';
+    // Cat World sky colors
+    if (currentScene === 'COZY_HOUSE') skyColor = '#F5E6CA';
+    if (currentScene === 'GARDEN') skyColor = '#87CEEB';
+    if (currentScene === 'ROOFTOP') skyColor = '#FF7043';
+    if (currentScene === 'FISH_MARKET') skyColor = '#B0BEC5';
+    if (currentScene === 'ALLEY') skyColor = '#1A1A2E';
+    if (currentScene === 'YARNIA') skyColor = '#FFCCF9';
+    if (currentScene === 'CATNIP_FIELDS') skyColor = '#A8E6CF';
+    if (currentScene === 'MOONLIT_ROOF') skyColor = '#0D1B2A';
+    if (currentScene === 'CAT_CAFE') skyColor = '#D7CCC8';
+    if (currentScene === 'LASER_LAND') skyColor = '#1A0033';
 
     ctx.fillStyle = skyColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1115,8 +1177,410 @@ function drawBackground() {
         ctx.setLineDash([]);
     }
 
-    // Underwater bubbles on ALL scenes
-    drawUnderwaterBubbles();
+    // ═══ CAT WORLD SCENES ═══
+    else if (currentScene === 'COZY_HOUSE') {
+        // Warm living room
+        let grad = ctx.createLinearGradient(0, 0, 0, 400);
+        grad.addColorStop(0, '#F5E6CA');
+        grad.addColorStop(1, '#E8D5B5');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, 400);
+        // Wallpaper pattern
+        ctx.globalAlpha = 0.1;
+        ctx.fillStyle = '#D4A574';
+        for (let p = 0; p < 20; p++) {
+            let px = (p * 60 - gameTick / 8) % (canvas.width + 60);
+            if (px < -30) px += canvas.width + 60;
+            for (let py = 0; py < 400; py += 60) {
+                ctx.beginPath();
+                ctx.arc(px, py, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.globalAlpha = 1.0;
+        // Fireplace
+        let fpX = (400 - gameTick / 10) % (canvas.width + 300);
+        if (fpX < -100) fpX += canvas.width + 300;
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(fpX, 200, 100, 180);
+        ctx.fillStyle = '#654321';
+        ctx.fillRect(fpX - 10, 190, 120, 15);
+        ctx.fillStyle = '#333';
+        ctx.fillRect(fpX + 10, 250, 80, 130);
+        // Fire
+        ctx.fillStyle = '#FF4500';
+        ctx.beginPath();
+        ctx.moveTo(fpX + 25, 380); ctx.lineTo(fpX + 50, 290 + Math.sin(gameTick * 0.1) * 10); ctx.lineTo(fpX + 75, 380);
+        ctx.fill();
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.moveTo(fpX + 35, 380); ctx.lineTo(fpX + 50, 320 + Math.sin(gameTick * 0.15) * 8); ctx.lineTo(fpX + 65, 380);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+        // Cushions / yarn balls
+        const cushColors = ['#E91E63', '#9C27B0', '#2196F3'];
+        for (let c = 0; c < 3; c++) {
+            let cx = (c * 280 + 100 - gameTick / 6) % (canvas.width + 200);
+            if (cx < -20) cx += canvas.width + 200;
+            ctx.globalAlpha = 0.4;
+            ctx.fillStyle = cushColors[c];
+            ctx.beginPath(); ctx.arc(cx, 370, 15, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = cushColors[c]; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(cx, 370, 10, 0, Math.PI); ctx.stroke();
+            ctx.globalAlpha = 1.0;
+        }
+    }
+    else if (currentScene === 'GARDEN') {
+        // Sunny garden
+        let grad = ctx.createLinearGradient(0, 300, 0, 400);
+        grad.addColorStop(0, 'rgba(139, 195, 74, 0)');
+        grad.addColorStop(1, 'rgba(139, 195, 74, 0.5)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 300, canvas.width, 100);
+        // Sun
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath(); ctx.arc(700, 60, 40, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.15;
+        ctx.beginPath(); ctx.arc(700, 60, 60, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1.0;
+        // Fence
+        ctx.fillStyle = '#DEB887';
+        for (let f = 0; f < 25; f++) {
+            let fx = (f * 45 - gameTick / 4) % (canvas.width + 50);
+            if (fx < -10) fx += canvas.width + 50;
+            ctx.fillRect(fx, 300, 8, 90);
+            ctx.beginPath();
+            ctx.moveTo(fx, 300); ctx.lineTo(fx + 4, 290); ctx.lineTo(fx + 8, 300);
+            ctx.fill();
+        }
+        ctx.fillRect(0, 340, canvas.width, 5);
+        ctx.fillRect(0, 365, canvas.width, 5);
+        // Flowers
+        const fColors = ['#FF5252', '#FF4081', '#E040FB', '#7C4DFF', '#448AFF', '#FFAB40'];
+        for (let fl = 0; fl < 8; fl++) {
+            let flx = (fl * 110 + 30 - gameTick / 5) % (canvas.width + 100);
+            if (flx < -10) flx += canvas.width + 100;
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(flx + 3, 355, 3, 35);
+            ctx.fillStyle = fColors[fl % fColors.length];
+            ctx.beginPath(); ctx.arc(flx + 4, 352, 7, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#FFC107';
+            ctx.beginPath(); ctx.arc(flx + 4, 352, 3, 0, Math.PI * 2); ctx.fill();
+        }
+        // Butterflies
+        ctx.globalAlpha = 0.5;
+        for (let b = 0; b < 4; b++) {
+            let bx = (b * 220 + 50 - gameTick * 0.3) % (canvas.width + 100);
+            if (bx < -15) bx += canvas.width + 100;
+            let by = 100 + b * 50 + Math.sin(gameTick * 0.04 + b) * 20;
+            let wingFlap = Math.sin(gameTick * 0.2 + b) * 6;
+            ctx.fillStyle = ['#FF69B4', '#87CEEB', '#FFD700', '#DDA0DD'][b];
+            ctx.beginPath(); ctx.ellipse(bx - 5, by, Math.abs(wingFlap), 4, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(bx + 5, by, Math.abs(wingFlap), 4, 0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#333'; ctx.fillRect(bx - 1, by - 2, 2, 6);
+        }
+        ctx.globalAlpha = 1.0;
+    }
+    else if (currentScene === 'ROOFTOP') {
+        // Sunset rooftops
+        let grad = ctx.createLinearGradient(0, 0, 0, 400);
+        grad.addColorStop(0, '#FF7043'); grad.addColorStop(0.5, '#FF8A65'); grad.addColorStop(1, '#FFB74D');
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, 400);
+        // City silhouette
+        ctx.fillStyle = '#37474F';
+        for (let b = 0; b < 8; b++) {
+            let bx = (b * 120 - gameTick / 6) % (canvas.width + 150);
+            if (bx < -60) bx += canvas.width + 150;
+            let bh = 120 + (b * 37) % 100;
+            ctx.fillRect(bx, 400 - bh, 50, bh);
+            // Windows
+            ctx.fillStyle = '#FFD54F';
+            for (let wy = 400 - bh + 10; wy < 390; wy += 20) {
+                for (let wx = 5; wx < 45; wx += 15) {
+                    if (Math.random() > 0.3 || gameTick % 120 < 60) ctx.fillRect(bx + wx, wy, 8, 10);
+                }
+            }
+            ctx.fillStyle = '#37474F';
+        }
+        // Antennas
+        ctx.strokeStyle = '#555'; ctx.lineWidth = 2;
+        for (let a = 0; a < 4; a++) {
+            let ax = (a * 200 + 80 - gameTick / 6) % (canvas.width + 150);
+            if (ax < -10) ax += canvas.width + 150;
+            ctx.beginPath(); ctx.moveTo(ax, 280); ctx.lineTo(ax, 240); ctx.stroke();
+            ctx.fillStyle = '#F44336'; ctx.beginPath(); ctx.arc(ax, 238, 3, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+    else if (currentScene === 'FISH_MARKET') {
+        // Market stalls
+        let grad = ctx.createLinearGradient(0, 0, 0, 400);
+        grad.addColorStop(0, '#B0BEC5'); grad.addColorStop(1, '#78909C');
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, 400);
+        // Stalls
+        const stallColors = ['#F44336', '#2196F3', '#4CAF50', '#FF9800'];
+        for (let s = 0; s < 4; s++) {
+            let sx = (s * 230 + 50 - gameTick / 5) % (canvas.width + 250);
+            if (sx < -100) sx += canvas.width + 250;
+            ctx.globalAlpha = 0.5;
+            // Table
+            ctx.fillStyle = '#8D6E63'; ctx.fillRect(sx, 300, 90, 10);
+            ctx.fillRect(sx + 5, 310, 5, 80); ctx.fillRect(sx + 80, 310, 5, 80);
+            // Awning
+            ctx.fillStyle = stallColors[s];
+            ctx.beginPath(); ctx.moveTo(sx - 10, 270); ctx.lineTo(sx + 45, 250); ctx.lineTo(sx + 100, 270); ctx.lineTo(sx + 100, 300); ctx.lineTo(sx - 10, 300); ctx.fill();
+            // Fish on table
+            ctx.fillStyle = '#90CAF9';
+            for (let fi = 0; fi < 3; fi++) {
+                ctx.beginPath(); ctx.ellipse(sx + 15 + fi * 25, 295, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.globalAlpha = 1.0;
+        }
+        // Crates
+        ctx.fillStyle = 'rgba(139, 90, 43, 0.4)';
+        for (let cr = 0; cr < 5; cr++) {
+            let crx = (cr * 180 + 120 - gameTick / 4) % (canvas.width + 100);
+            if (crx < -20) crx += canvas.width + 100;
+            ctx.fillRect(crx, 360, 25, 25);
+            ctx.strokeStyle = 'rgba(100, 60, 20, 0.3)'; ctx.strokeRect(crx, 360, 25, 25);
+        }
+    }
+    else if (currentScene === 'ALLEY') {
+        // Dark alley
+        let grad = ctx.createLinearGradient(0, 0, 0, 400);
+        grad.addColorStop(0, '#1A1A2E'); grad.addColorStop(1, '#16213E');
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, 400);
+        // Brick walls
+        ctx.globalAlpha = 0.2; ctx.fillStyle = '#5D4037';
+        for (let row = 0; row < 20; row++) {
+            for (let col = 0; col < 25; col++) {
+                let bx = col * 35 + (row % 2) * 17;
+                ctx.fillRect(bx, row * 20, 33, 18);
+            }
+        }
+        ctx.globalAlpha = 1.0;
+        // Neon sign
+        let neonX = (350 - gameTick / 8) % (canvas.width + 300);
+        if (neonX < -80) neonX += canvas.width + 300;
+        let neonFlicker = Math.sin(gameTick * 0.15) > -0.3 ? 1 : 0.3;
+        ctx.globalAlpha = 0.6 * neonFlicker;
+        ctx.fillStyle = '#FF1744'; ctx.fillRect(neonX, 80, 80, 30);
+        ctx.fillStyle = '#FFCDD2'; ctx.font = 'bold 14px monospace'; ctx.fillText('FISH', neonX + 18, 102);
+        ctx.globalAlpha = 1.0;
+        // Trash cans
+        ctx.fillStyle = 'rgba(100, 100, 100, 0.5)';
+        for (let t = 0; t < 3; t++) {
+            let tx = (t * 300 + 100 - gameTick / 5) % (canvas.width + 200);
+            if (tx < -25) tx += canvas.width + 200;
+            ctx.fillRect(tx, 340, 25, 50); ctx.fillRect(tx - 3, 335, 31, 8);
+        }
+        // Puddles
+        ctx.fillStyle = 'rgba(100, 149, 237, 0.2)';
+        for (let p = 0; p < 4; p++) {
+            let px = (p * 220 + 60 - gameTick / 4) % (canvas.width + 150);
+            if (px < -30) px += canvas.width + 150;
+            ctx.beginPath(); ctx.ellipse(px, 385, 25, 5, 0, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+    else if (currentScene === 'YARNIA') {
+        // Fantasy yarn world
+        let grad = ctx.createLinearGradient(0, 0, 0, 400);
+        grad.addColorStop(0, '#FFCCF9'); grad.addColorStop(1, '#FFE0F0');
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, 400);
+        // Knitted clouds
+        ctx.globalAlpha = 0.4;
+        for (let c = 0; c < 4; c++) {
+            let cx = (c * 250 + 50 - gameTick / 10) % (canvas.width + 200);
+            if (cx < -80) cx += canvas.width + 200;
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath(); ctx.arc(cx, 80, 20, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx + 25, 75, 25, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx + 50, 80, 20, 0, Math.PI * 2); ctx.fill();
+            // Stitch lines
+            ctx.strokeStyle = '#E0E0E0'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+            ctx.beginPath(); ctx.moveTo(cx - 15, 80); ctx.lineTo(cx + 65, 80); ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        ctx.globalAlpha = 1.0;
+        // Yarn ball trees
+        const yarnColors = ['#E91E63', '#9C27B0', '#2196F3', '#4CAF50', '#FF9800', '#F44336'];
+        for (let t = 0; t < 6; t++) {
+            let tx = (t * 160 + 40 - gameTick / 4) % (canvas.width + 150);
+            if (tx < -30) tx += canvas.width + 150;
+            ctx.globalAlpha = 0.5;
+            // Stick
+            ctx.fillStyle = '#BCAAA4'; ctx.fillRect(tx + 8, 310, 6, 80);
+            // Yarn ball
+            ctx.fillStyle = yarnColors[t % yarnColors.length];
+            ctx.beginPath(); ctx.arc(tx + 11, 300, 18, 0, Math.PI * 2); ctx.fill();
+            // Swirl pattern
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(tx + 11, 300, 10, 0, Math.PI * 1.5); ctx.stroke();
+            ctx.beginPath(); ctx.arc(tx + 11, 300, 5, Math.PI, Math.PI * 2.5); ctx.stroke();
+            ctx.globalAlpha = 1.0;
+        }
+    }
+    else if (currentScene === 'CATNIP_FIELDS') {
+        // Dreamy green fields
+        let grad = ctx.createLinearGradient(0, 0, 0, 400);
+        grad.addColorStop(0, '#A8E6CF'); grad.addColorStop(1, '#88D8A8');
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, 400);
+        // Rolling hills
+        ctx.fillStyle = '#69C97E';
+        ctx.beginPath(); ctx.moveTo(0, 400);
+        for (let x = 0; x <= canvas.width; x += 8) ctx.lineTo(x, 350 + Math.sin((x + gameTick * 0.2) / 100) * 20);
+        ctx.lineTo(canvas.width, 400); ctx.fill();
+        // Catnip plants
+        ctx.fillStyle = '#2E7D32';
+        for (let p = 0; p < 10; p++) {
+            let px = (p * 95 - gameTick / 4) % (canvas.width + 100);
+            if (px < -10) px += canvas.width + 100;
+            ctx.fillRect(px + 3, 360, 3, 30);
+            ctx.fillStyle = '#66BB6A';
+            ctx.beginPath(); ctx.ellipse(px + 4, 358, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(px - 2, 365, 6, 3, -0.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(px + 10, 365, 6, 3, 0.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#2E7D32';
+        }
+        // Floating hearts
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = '#FF69B4';
+        for (let h = 0; h < 6; h++) {
+            let hx = (h * 150 + gameTick * 0.3) % canvas.width;
+            let hy = 60 + h * 40 + Math.sin(gameTick * 0.02 + h) * 15;
+            ctx.save(); ctx.translate(hx, hy); ctx.scale(0.6, 0.6);
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(-5, -5, -10, 0, 0, 10); ctx.bezierCurveTo(10, 0, 5, -5, 0, 0); ctx.fill();
+            ctx.restore();
+        }
+        ctx.globalAlpha = 1.0;
+    }
+    else if (currentScene === 'MOONLIT_ROOF') {
+        // Night rooftop
+        let grad = ctx.createLinearGradient(0, 0, 0, 400);
+        grad.addColorStop(0, '#0D1B2A'); grad.addColorStop(1, '#1B2838');
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, 400);
+        // Stars
+        ctx.fillStyle = '#FFFFFF';
+        for (let s = 0; s < 30; s++) {
+            let sx = (s * 67 + 10) % canvas.width;
+            let sy = (s * 31 + 5) % 200;
+            let twinkle = Math.abs(Math.sin(gameTick / 20 + s * 0.5));
+            ctx.globalAlpha = twinkle * 0.7;
+            ctx.beginPath(); ctx.arc(sx, sy, 1 + (s % 2), 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
+        // Moon
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = '#FFF9C4';
+        ctx.beginPath(); ctx.arc(650, 70, 40, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.2;
+        ctx.fillStyle = '#FFFDE7';
+        ctx.beginPath(); ctx.arc(650, 70, 55, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1.0;
+        // Rooftop silhouettes
+        ctx.fillStyle = '#263238';
+        for (let r = 0; r < 6; r++) {
+            let rx = (r * 160 - gameTick / 7) % (canvas.width + 150);
+            if (rx < -70) rx += canvas.width + 150;
+            ctx.fillRect(rx, 320 - (r % 3) * 30, 60, 80 + (r % 3) * 30);
+            // Chimney
+            ctx.fillRect(rx + 10, 310 - (r % 3) * 30, 12, 15);
+        }
+    }
+    else if (currentScene === 'CAT_CAFE') {
+        // Cozy café
+        let grad = ctx.createLinearGradient(0, 0, 0, 400);
+        grad.addColorStop(0, '#D7CCC8'); grad.addColorStop(1, '#BCAAA4');
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, 400);
+        // Wooden floor
+        ctx.fillStyle = 'rgba(141, 110, 99, 0.2)'; ctx.lineWidth = 1;
+        for (let i = 0; i < 12; i++) ctx.fillRect(0, 330 + i * 6, canvas.width, 1);
+        // Tables
+        for (let t = 0; t < 3; t++) {
+            let tx = (t * 300 + 100 - gameTick / 8) % (canvas.width + 300);
+            if (tx < -60) tx += canvas.width + 300;
+            ctx.globalAlpha = 0.45;
+            ctx.fillStyle = '#5D4037'; ctx.fillRect(tx, 310, 60, 5);
+            ctx.fillRect(tx + 10, 315, 5, 75); ctx.fillRect(tx + 45, 315, 5, 75);
+            // Coffee cup
+            ctx.fillStyle = '#FFFFFF'; ctx.fillRect(tx + 20, 295, 15, 15);
+            ctx.fillStyle = '#795548';
+            ctx.beginPath(); ctx.ellipse(tx + 27, 295, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+            // Steam
+            ctx.strokeStyle = 'rgba(200,200,200,0.4)'; ctx.lineWidth = 1;
+            for (let s = 0; s < 3; s++) {
+                ctx.beginPath(); ctx.moveTo(tx + 24 + s * 4, 292);
+                ctx.quadraticCurveTo(tx + 22 + s * 4 + Math.sin(gameTick * 0.05 + s) * 3, 282, tx + 26 + s * 4, 272);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1.0;
+        }
+        // Cat beds
+        ctx.globalAlpha = 0.4;
+        const bedColors = ['#E91E63', '#9C27B0', '#FF5722'];
+        for (let b = 0; b < 3; b++) {
+            let bx = (b * 280 + 50 - gameTick / 6) % (canvas.width + 200);
+            if (bx < -30) bx += canvas.width + 200;
+            ctx.fillStyle = bedColors[b];
+            ctx.beginPath(); ctx.ellipse(bx, 375, 22, 8, 0, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
+    }
+    else if (currentScene === 'LASER_LAND') {
+        // Disco / laser room
+        let grad = ctx.createLinearGradient(0, 0, 0, 400);
+        grad.addColorStop(0, '#1A0033'); grad.addColorStop(0.5, '#2D004D'); grad.addColorStop(1, '#1A0033');
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, 400);
+        // Disco ball
+        let ballX = (400 - gameTick / 12) % (canvas.width + 300);
+        if (ballX < -30) ballX += canvas.width + 300;
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = '#C0C0C0'; ctx.beginPath(); ctx.arc(ballX, 60, 20, 0, Math.PI * 2); ctx.fill();
+        // Mirror facets
+        ctx.fillStyle = '#FFFFFF';
+        for (let f = 0; f < 8; f++) {
+            let a = f * Math.PI / 4 + gameTick * 0.02;
+            ctx.globalAlpha = 0.4 + Math.sin(gameTick * 0.05 + f) * 0.2;
+            ctx.beginPath(); ctx.arc(ballX + Math.cos(a) * 14, 60 + Math.sin(a) * 14, 3, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
+        // Laser beams
+        const laserColors = ['#FF0000', '#00FF00', '#0000FF', '#FF00FF', '#00FFFF', '#FFFF00'];
+        for (let l = 0; l < 6; l++) {
+            let angle = (gameTick * 0.02 + l * Math.PI / 3);
+            ctx.strokeStyle = laserColors[l]; ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.35;
+            ctx.beginPath(); ctx.moveTo(ballX, 60);
+            ctx.lineTo(ballX + Math.cos(angle) * 400, 60 + Math.sin(angle) * 400);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1.0;
+        // Sparkle particles
+        for (let s = 0; s < 20; s++) {
+            let sx = (s * 83 + gameTick * 0.5) % canvas.width;
+            let sy = (s * 47 + 20) % 380;
+            let brightness = Math.abs(Math.sin(gameTick / 10 + s * 0.8));
+            ctx.fillStyle = laserColors[s % laserColors.length];
+            ctx.globalAlpha = brightness * 0.5;
+            ctx.beginPath(); ctx.arc(sx, sy, 2, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
+    }
+
+    // Underwater bubbles on SpongeBob scenes only, floating dust on cat scenes
+    if (gameMode === 'cat') {
+        // Floating dust motes
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        for (let i = 0; i < 8; i++) {
+            let dx = (i * 97 + gameTick * 0.3) % canvas.width;
+            let dy = (250 - (gameTick * 0.2 + i * 45) % 300);
+            if (dy < -5) dy += 300;
+            ctx.beginPath(); ctx.arc(dx, dy, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+    } else {
+        drawUnderwaterBubbles();
+    }
 
     // 3. Scrolling Ground (Blocks)
     drawScrollingGround();
@@ -1170,6 +1634,17 @@ function drawScrollingGround() {
     if (currentScene === 'GLOVE_WORLD') { mainColor = '#8E44AD'; detailColor = '#7D3C98'; }
     if (currentScene === 'FLYING_DUTCHMAN') { mainColor = '#1C3A1C'; detailColor = '#0D2D0D'; }
     if (currentScene === 'BOATING_SCHOOL') { mainColor = '#808080'; detailColor = '#696969'; }
+    // Cat World ground colors
+    if (currentScene === 'COZY_HOUSE') { mainColor = '#8D6E63'; detailColor = '#795548'; }
+    if (currentScene === 'GARDEN') { mainColor = '#6D4C41'; detailColor = '#5D4037'; }
+    if (currentScene === 'ROOFTOP') { mainColor = '#546E7A'; detailColor = '#455A64'; }
+    if (currentScene === 'FISH_MARKET') { mainColor = '#607D8B'; detailColor = '#546E7A'; }
+    if (currentScene === 'ALLEY') { mainColor = '#37474F'; detailColor = '#263238'; }
+    if (currentScene === 'YARNIA') { mainColor = '#CE93D8'; detailColor = '#BA68C8'; }
+    if (currentScene === 'CATNIP_FIELDS') { mainColor = '#66BB6A'; detailColor = '#4CAF50'; }
+    if (currentScene === 'MOONLIT_ROOF') { mainColor = '#37474F'; detailColor = '#263238'; }
+    if (currentScene === 'CAT_CAFE') { mainColor = '#A1887F'; detailColor = '#8D6E63'; }
+    if (currentScene === 'LASER_LAND') { mainColor = '#4A148C'; detailColor = '#311B92'; }
 
     for (let x = -blockWidth; x < canvas.width + blockWidth; x += blockWidth) {
         let drawX = x - offset;
@@ -1303,6 +1778,78 @@ function drawBgCharacters() {
             ctx.fillStyle = 'red';
             ctx.beginPath(); ctx.arc(41, 15, 2, 0, Math.PI * 2); ctx.fill();
         }
+        // === Cat World Background Characters ===
+        else if (char.type === 'Kitten') {
+            // Small white kitten
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath(); ctx.ellipse(20, 25, 12, 10, 0, 0, Math.PI * 2); ctx.fill(); // body
+            ctx.beginPath(); ctx.arc(20, 12, 8, 0, Math.PI * 2); ctx.fill(); // head
+            // Ears
+            ctx.beginPath(); ctx.moveTo(13, 6); ctx.lineTo(10, -2); ctx.lineTo(16, 4); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(27, 6); ctx.lineTo(30, -2); ctx.lineTo(24, 4); ctx.fill();
+            // Inner ears
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath(); ctx.moveTo(14, 6); ctx.lineTo(12, 1); ctx.lineTo(16, 5); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(26, 6); ctx.lineTo(28, 1); ctx.lineTo(24, 5); ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#87CEEB';
+            ctx.beginPath(); ctx.arc(16, 12, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 12, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'black';
+            ctx.beginPath(); ctx.arc(16, 12, 1.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 12, 1.5, 0, Math.PI * 2); ctx.fill();
+            // Nose & whiskers
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath(); ctx.arc(20, 16, 1.5, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#CCC'; ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.moveTo(12, 14); ctx.lineTo(4, 12); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(12, 16); ctx.lineTo(4, 17); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(28, 14); ctx.lineTo(36, 12); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(28, 16); ctx.lineTo(36, 17); ctx.stroke();
+            // Tail
+            ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(32, 25);
+            ctx.quadraticCurveTo(40, 15 + Math.sin(gameTick * 0.08) * 5, 38, 10); ctx.stroke();
+        }
+        else if (char.type === 'FatCat') {
+            // Big grey cat lounging
+            ctx.fillStyle = '#9E9E9E';
+            ctx.beginPath(); ctx.ellipse(20, 30, 18, 12, 0, 0, Math.PI * 2); ctx.fill(); // body
+            ctx.beginPath(); ctx.arc(5, 20, 10, 0, Math.PI * 2); ctx.fill(); // head
+            // Ears
+            ctx.fillStyle = '#757575';
+            ctx.beginPath(); ctx.moveTo(0, 12); ctx.lineTo(-3, 5); ctx.lineTo(4, 10); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(10, 12); ctx.lineTo(13, 5); ctx.lineTo(7, 10); ctx.fill();
+            // Eyes (sleepy)
+            ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(1, 19); ctx.lineTo(5, 19); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(7, 19); ctx.lineTo(11, 19); ctx.stroke();
+            // Stripes
+            ctx.strokeStyle = '#757575'; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(12, 22); ctx.lineTo(15, 35); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(20, 19); ctx.lineTo(22, 33); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(28, 22); ctx.lineTo(30, 35); ctx.stroke();
+        }
+        else if (char.type === 'BlackCat') {
+            // Sleek black cat sitting
+            ctx.fillStyle = '#333';
+            ctx.beginPath(); ctx.ellipse(20, 30, 10, 14, 0, 0, Math.PI * 2); ctx.fill(); // body
+            ctx.beginPath(); ctx.arc(20, 10, 9, 0, Math.PI * 2); ctx.fill(); // head
+            // Pointy ears
+            ctx.beginPath(); ctx.moveTo(13, 4); ctx.lineTo(10, -5); ctx.lineTo(16, 2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(27, 4); ctx.lineTo(30, -5); ctx.lineTo(24, 2); ctx.fill();
+            // Glowing eyes
+            ctx.fillStyle = '#FFFF00';
+            ctx.beginPath(); ctx.arc(16, 10, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 10, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'black';
+            ctx.beginPath(); ctx.ellipse(16, 10, 0.8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(24, 10, 0.8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+            // Tail curling up
+            ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(30, 30);
+            ctx.quadraticCurveTo(42, 20, 38, 5 + Math.sin(gameTick * 0.06) * 3); ctx.stroke();
+        }
 
         ctx.restore();
     });
@@ -1411,79 +1958,185 @@ function drawBgCreatures() {
             ctx.fillStyle = 'black';
             ctx.beginPath(); ctx.arc(c.x - 5, c.y - 1, 1.2, 0, Math.PI * 2); ctx.fill();
         }
+        // === Cat World Creatures ===
+        else if (c.type === 'butterfly') {
+            let wingFlap = Math.sin(gameTick * 0.2 + c.wobbleOffset) * 6;
+            ctx.fillStyle = ['#FF69B4', '#FFD700', '#87CEEB', '#DDA0DD'][Math.floor(c.wobbleOffset) % 4];
+            ctx.beginPath(); ctx.ellipse(c.x - 4, c.y, Math.abs(wingFlap), 5, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(c.x + 4, c.y, Math.abs(wingFlap), 5, 0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#333';
+            ctx.fillRect(c.x - 0.5, c.y - 3, 1, 7);
+            // Antennae
+            ctx.strokeStyle = '#333'; ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.moveTo(c.x, c.y - 3); ctx.lineTo(c.x - 3, c.y - 7); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(c.x, c.y - 3); ctx.lineTo(c.x + 3, c.y - 7); ctx.stroke();
+        }
+        else if (c.type === 'mouse') {
+            ctx.fillStyle = '#BDBDBD';
+            ctx.beginPath(); ctx.ellipse(c.x, c.y, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
+            // Head
+            ctx.beginPath(); ctx.arc(c.x - 8, c.y, 4, 0, Math.PI * 2); ctx.fill();
+            // Ears
+            ctx.fillStyle = '#F48FB1';
+            ctx.beginPath(); ctx.arc(c.x - 10, c.y - 4, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x - 6, c.y - 4, 3, 0, Math.PI * 2); ctx.fill();
+            // Eye
+            ctx.fillStyle = 'black';
+            ctx.beginPath(); ctx.arc(c.x - 10, c.y, 1, 0, Math.PI * 2); ctx.fill();
+            // Tail
+            ctx.strokeStyle = '#BDBDBD'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(c.x + 8, c.y);
+            ctx.quadraticCurveTo(c.x + 15, c.y - 5, c.x + 18, c.y + 2); ctx.stroke();
+        }
+        else if (c.type === 'bird') {
+            let flapY = Math.sin(gameTick * 0.15 + c.wobbleOffset) * 3;
+            ctx.fillStyle = '#42A5F5';
+            ctx.beginPath(); ctx.ellipse(c.x, c.y, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
+            // Wings
+            ctx.fillStyle = '#1E88E5';
+            ctx.beginPath(); ctx.ellipse(c.x, c.y - 4 + flapY, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
+            // Beak
+            ctx.fillStyle = '#FF8F00';
+            ctx.beginPath(); ctx.moveTo(c.x - 8, c.y - 1); ctx.lineTo(c.x - 13, c.y); ctx.lineTo(c.x - 8, c.y + 1); ctx.fill();
+            // Eye
+            ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(c.x - 4, c.y - 1, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(c.x - 4, c.y - 1, 1, 0, Math.PI * 2); ctx.fill();
+        }
+        else if (c.type === 'dragonfly') {
+            ctx.fillStyle = '#26C6DA';
+            ctx.fillRect(c.x - 8, c.y, 16, 2);
+            // Wings
+            let wingA = Math.sin(gameTick * 0.25 + c.wobbleOffset) * 5;
+            ctx.globalAlpha = 0.4;
+            ctx.fillStyle = '#B2EBF2';
+            ctx.beginPath(); ctx.ellipse(c.x - 2, c.y - 2 + wingA, 8, 2, -0.2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(c.x + 2, c.y - 2 - wingA, 8, 2, 0.2, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 0.55;
+            // Eyes
+            ctx.fillStyle = '#00838F';
+            ctx.beginPath(); ctx.arc(c.x - 8, c.y, 2, 0, Math.PI * 2); ctx.fill();
+        }
 
         ctx.restore();
     });
 }
 
 function drawEntities() {
-    // Player Draw Logic (Same as before but ensure invulnerability flash)
+    // Player Draw Logic
     if (player.invulnerable > 0 && Math.floor(gameTick / 4) % 2 === 0) return;
 
-    // Body
     let bounce = player.grounded ? Math.sin(gameTick * 0.5) * 2 : 0;
-    ctx.fillStyle = '#F7E414';
-    ctx.fillRect(player.x, player.y + bounce, player.width, player.height);
 
-    // Sponge details...
-    ctx.fillStyle = '#CCAE1D';
-    ctx.beginPath(); ctx.arc(player.x + 10, player.y + 10 + bounce, 5, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(player.x + 40, player.y + 35 + bounce, 4, 0, Math.PI * 2); ctx.fill();
-
-    // Face
-    ctx.fillStyle = 'white';
-    ctx.beginPath(); ctx.arc(player.x + 15, player.y + 15 + bounce, 8, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(player.x + 35, player.y + 15 + bounce, 8, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#87CEEB';
-    ctx.beginPath(); ctx.arc(player.x + 15, player.y + 15 + bounce, 3, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(player.x + 35, player.y + 15 + bounce, 3, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'black'; // Pupil
-    ctx.beginPath(); ctx.arc(player.x + 15, player.y + 15 + bounce, 1, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(player.x + 35, player.y + 15 + bounce, 1, 0, Math.PI * 2); ctx.fill();
-
-    // Smile
-    ctx.beginPath(); ctx.arc(player.x + 25, player.y + 30 + bounce, 10, 0, Math.PI, false); ctx.stroke();
-    // Teeth
-    ctx.fillStyle = 'white'; ctx.fillRect(player.x + 20, player.y + 30 + bounce, 4, 4); ctx.fillRect(player.x + 26, player.y + 30 + bounce, 4, 4);
-
-    // Clothes
-    ctx.fillStyle = '#8B4513'; ctx.fillRect(player.x, player.y + 40 + bounce, player.width, 10);
-    ctx.fillStyle = 'white'; ctx.fillRect(player.x, player.y + 35 + bounce, player.width, 5);
-    ctx.fillStyle = 'red'; ctx.beginPath(); ctx.moveTo(player.x + 20, player.y + 35 + bounce); ctx.lineTo(player.x + 30, player.y + 35 + bounce); ctx.lineTo(player.x + 25, player.y + 45 + bounce); ctx.fill();
-
-    // Legs
-    ctx.fillStyle = '#F7E414';
-    let leftLegY, rightLegY, leftLegH, rightLegH;
-    if (player.grounded) {
-        if (Math.sin(gameTick * 0.5) > 0) {
-            leftLegY = player.y + 50 + bounce; leftLegH = 10;
-            rightLegY = player.y + 48 + bounce; rightLegH = 8;
-        } else {
-            leftLegY = player.y + 48 + bounce; leftLegH = 8;
-            rightLegY = player.y + 50 + bounce; rightLegH = 10;
-        }
+    if (gameMode === 'cat') {
+        // === CAT PLAYER ===
+        let px = player.x, py = player.y + bounce;
+        // Body (orange tabby)
+        ctx.fillStyle = '#FF8C00';
+        ctx.beginPath(); ctx.ellipse(px + 25, py + 30, 22, 18, 0, 0, Math.PI * 2); ctx.fill();
+        // Stripes
+        ctx.strokeStyle = '#CC6600'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(px + 15, py + 20); ctx.lineTo(px + 18, py + 40); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(px + 25, py + 15); ctx.lineTo(px + 25, py + 42); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(px + 35, py + 20); ctx.lineTo(px + 32, py + 40); ctx.stroke();
+        // Head
+        ctx.fillStyle = '#FF8C00';
+        ctx.beginPath(); ctx.arc(px + 25, py + 10, 14, 0, Math.PI * 2); ctx.fill();
+        // Ears
+        ctx.beginPath(); ctx.moveTo(px + 13, py + 2); ctx.lineTo(px + 9, py - 10); ctx.lineTo(px + 18, py); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(px + 37, py + 2); ctx.lineTo(px + 41, py - 10); ctx.lineTo(px + 32, py); ctx.fill();
+        // Inner ears
+        ctx.fillStyle = '#FFB6C1';
+        ctx.beginPath(); ctx.moveTo(px + 14, py + 1); ctx.lineTo(px + 11, py - 6); ctx.lineTo(px + 17, py); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(px + 36, py + 1); ctx.lineTo(px + 39, py - 6); ctx.lineTo(px + 33, py); ctx.fill();
+        // Eyes
+        ctx.fillStyle = '#4CAF50';
+        ctx.beginPath(); ctx.arc(px + 20, py + 8, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + 30, py + 8, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'black';
+        ctx.beginPath(); ctx.ellipse(px + 20, py + 8, 1.5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(px + 30, py + 8, 1.5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+        // Nose
+        ctx.fillStyle = '#FF69B4';
+        ctx.beginPath(); ctx.moveTo(px + 25, py + 14); ctx.lineTo(px + 23, py + 12); ctx.lineTo(px + 27, py + 12); ctx.fill();
+        // Whiskers
+        ctx.strokeStyle = '#DDD'; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(px + 15, py + 12); ctx.lineTo(px + 5, py + 9); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(px + 15, py + 14); ctx.lineTo(px + 5, py + 15); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(px + 35, py + 12); ctx.lineTo(px + 45, py + 9); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(px + 35, py + 14); ctx.lineTo(px + 45, py + 15); ctx.stroke();
+        // Legs
+        ctx.fillStyle = '#FF8C00';
+        let legAnim = player.grounded ? Math.sin(gameTick * 0.5) * 3 : 0;
+        ctx.fillRect(px + 10, py + 42, 7, 10 + legAnim);
+        ctx.fillRect(px + 33, py + 42, 7, 10 - legAnim);
+        // Paws
+        ctx.fillStyle = '#FFE0B2';
+        ctx.fillRect(px + 9, py + 51 + legAnim, 9, 4);
+        ctx.fillRect(px + 32, py + 51 - legAnim, 9, 4);
+        // Tail (wagging when grounded)
+        ctx.strokeStyle = '#FF8C00'; ctx.lineWidth = 4;
+        let tailWag = player.grounded ? Math.sin(gameTick * 0.12) * 8 : -3;
+        ctx.beginPath(); ctx.moveTo(px + 45, py + 28);
+        ctx.quadraticCurveTo(px + 55 + tailWag, py + 15, px + 52, py + 5); ctx.stroke();
+        // Tail tip
+        ctx.strokeStyle = '#FFE0B2'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(px + 52, py + 8); ctx.lineTo(px + 52, py + 5); ctx.stroke();
     } else {
-        leftLegY = player.y + 45 + bounce; leftLegH = 8;
-        rightLegY = player.y + 48 + bounce; rightLegH = 8;
+        // === SPONGEBOB PLAYER ===
+        // Body
+        ctx.fillStyle = '#F7E414';
+        ctx.fillRect(player.x, player.y + bounce, player.width, player.height);
+        // Sponge details
+        ctx.fillStyle = '#CCAE1D';
+        ctx.beginPath(); ctx.arc(player.x + 10, player.y + 10 + bounce, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(player.x + 40, player.y + 35 + bounce, 4, 0, Math.PI * 2); ctx.fill();
+        // Face
+        ctx.fillStyle = 'white';
+        ctx.beginPath(); ctx.arc(player.x + 15, player.y + 15 + bounce, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(player.x + 35, player.y + 15 + bounce, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#87CEEB';
+        ctx.beginPath(); ctx.arc(player.x + 15, player.y + 15 + bounce, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(player.x + 35, player.y + 15 + bounce, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'black';
+        ctx.beginPath(); ctx.arc(player.x + 15, player.y + 15 + bounce, 1, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(player.x + 35, player.y + 15 + bounce, 1, 0, Math.PI * 2); ctx.fill();
+        // Smile
+        ctx.beginPath(); ctx.arc(player.x + 25, player.y + 30 + bounce, 10, 0, Math.PI, false); ctx.stroke();
+        ctx.fillStyle = 'white'; ctx.fillRect(player.x + 20, player.y + 30 + bounce, 4, 4); ctx.fillRect(player.x + 26, player.y + 30 + bounce, 4, 4);
+        // Clothes
+        ctx.fillStyle = '#8B4513'; ctx.fillRect(player.x, player.y + 40 + bounce, player.width, 10);
+        ctx.fillStyle = 'white'; ctx.fillRect(player.x, player.y + 35 + bounce, player.width, 5);
+        ctx.fillStyle = 'red'; ctx.beginPath(); ctx.moveTo(player.x + 20, player.y + 35 + bounce); ctx.lineTo(player.x + 30, player.y + 35 + bounce); ctx.lineTo(player.x + 25, player.y + 45 + bounce); ctx.fill();
+        // Legs
+        ctx.fillStyle = '#F7E414';
+        let leftLegY, rightLegY, leftLegH, rightLegH;
+        if (player.grounded) {
+            if (Math.sin(gameTick * 0.5) > 0) {
+                leftLegY = player.y + 50 + bounce; leftLegH = 10;
+                rightLegY = player.y + 48 + bounce; rightLegH = 8;
+            } else {
+                leftLegY = player.y + 48 + bounce; leftLegH = 8;
+                rightLegY = player.y + 50 + bounce; rightLegH = 10;
+            }
+        } else {
+            leftLegY = player.y + 45 + bounce; leftLegH = 8;
+            rightLegY = player.y + 48 + bounce; rightLegH = 8;
+        }
+        ctx.fillRect(player.x + 10, leftLegY, 5, leftLegH);
+        ctx.fillRect(player.x + 30, rightLegY, 5, rightLegH);
+        // Shoes
+        ctx.fillStyle = 'black';
+        ctx.fillRect(player.x + 8, leftLegY + leftLegH, 10, 5);
+        ctx.fillRect(player.x + 28, rightLegY + rightLegH, 10, 5);
     }
-    ctx.fillRect(player.x + 10, leftLegY, 5, leftLegH);
-    ctx.fillRect(player.x + 30, rightLegY, 5, rightLegH);
-
-    // Shoes (both left and right!)
-    ctx.fillStyle = 'black';
-    ctx.fillRect(player.x + 8, leftLegY + leftLegH, 10, 5);   // left shoe
-    ctx.fillRect(player.x + 28, rightLegY + rightLegH, 10, 5); // right shoe
 
     // Obstacles
     obstacles.forEach(o => {
-        if (o.type === 'jellyfish') {
-            // Jellyfish are now background-only - skip any legacy jellyfish obstacles
-            return;
-        }
+        if (o.type === 'jellyfish') return;
 
-        // Blocks Rendering
-        let blockColor = '#5D4037'; // Dirt default
+        let blockColor = '#5D4037';
         let topColor = '#388E3C';
+        // SpongeBob scene obstacle colors
         if (currentScene === 'KELP_FOREST') { blockColor = '#2F4F4F'; topColor = '#556B2F'; }
         if (currentScene === 'JELLYFISH_FIELDS') { blockColor = '#556B2F'; topColor = '#7CCD7C'; }
         if (currentScene === 'KRUSTY_KRAB') { blockColor = '#8B6914'; topColor = '#B8860B'; }
@@ -1492,27 +2145,48 @@ function drawEntities() {
         if (currentScene === 'GLOVE_WORLD') { blockColor = '#6C3483'; topColor = '#AF7AC5'; }
         if (currentScene === 'FLYING_DUTCHMAN') { blockColor = '#1A3A1A'; topColor = '#2F4F2F'; }
         if (currentScene === 'BOATING_SCHOOL') { blockColor = '#555555'; topColor = '#888888'; }
+        // Cat World obstacle colors
+        if (currentScene === 'COZY_HOUSE') { blockColor = '#A1887F'; topColor = '#D7CCC8'; }
+        if (currentScene === 'GARDEN') { blockColor = '#795548'; topColor = '#A1887F'; }
+        if (currentScene === 'ROOFTOP') { blockColor = '#455A64'; topColor = '#78909C'; }
+        if (currentScene === 'FISH_MARKET') { blockColor = '#5D4037'; topColor = '#8D6E63'; }
+        if (currentScene === 'ALLEY') { blockColor = '#263238'; topColor = '#455A64'; }
+        if (currentScene === 'YARNIA') { blockColor = '#AB47BC'; topColor = '#CE93D8'; }
+        if (currentScene === 'CATNIP_FIELDS') { blockColor = '#558B2F'; topColor = '#8BC34A'; }
+        if (currentScene === 'MOONLIT_ROOF') { blockColor = '#1B2631'; topColor = '#34495E'; }
+        if (currentScene === 'CAT_CAFE') { blockColor = '#6D4C41'; topColor = '#A1887F'; }
+        if (currentScene === 'LASER_LAND') { blockColor = '#4A148C'; topColor = '#7B1FA2'; }
 
         ctx.fillStyle = blockColor;
         ctx.fillRect(o.x, o.y, o.width, o.height);
         ctx.fillStyle = topColor;
         ctx.fillRect(o.x, o.y, o.width, 10);
-
-        // Border
         ctx.strokeStyle = 'rgba(0,0,0,0.3)';
         ctx.strokeRect(o.x, o.y, o.width, o.height);
     });
 
     // Collectibles
     collectibles.forEach(c => {
-        // Bun bottom
-        ctx.fillStyle = '#F4A460'; ctx.fillRect(c.x, c.y + 20, c.width, 10);
-        // Lettuce
-        ctx.fillStyle = 'green'; ctx.fillRect(c.x, c.y + 15, c.width, 5);
-        // Patty
-        ctx.fillStyle = '#8B4513'; ctx.fillRect(c.x, c.y + 10, c.width, 5);
-        // Bun top
-        ctx.fillStyle = '#F4A460'; ctx.beginPath(); ctx.arc(c.x + c.width / 2, c.y + 10, c.width / 2, Math.PI, 0); ctx.fill();
+        if (c.type === 'fish') {
+            // Fish collectible for cat mode
+            ctx.fillStyle = '#90CAF9';
+            ctx.beginPath(); ctx.ellipse(c.x + 15, c.y + 15, 12, 7, 0, 0, Math.PI * 2); ctx.fill();
+            // Tail
+            ctx.fillStyle = '#64B5F6';
+            ctx.beginPath(); ctx.moveTo(c.x + 27, c.y + 15); ctx.lineTo(c.x + 35, c.y + 8); ctx.lineTo(c.x + 35, c.y + 22); ctx.fill();
+            // Eye
+            ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(c.x + 8, c.y + 13, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(c.x + 8, c.y + 13, 1.5, 0, Math.PI * 2); ctx.fill();
+            // Shine
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.beginPath(); ctx.ellipse(c.x + 12, c.y + 11, 4, 2, -0.3, 0, Math.PI * 2); ctx.fill();
+        } else {
+            // Krabby Patty for SpongeBob mode
+            ctx.fillStyle = '#F4A460'; ctx.fillRect(c.x, c.y + 20, c.width, 10);
+            ctx.fillStyle = 'green'; ctx.fillRect(c.x, c.y + 15, c.width, 5);
+            ctx.fillStyle = '#8B4513'; ctx.fillRect(c.x, c.y + 10, c.width, 5);
+            ctx.fillStyle = '#F4A460'; ctx.beginPath(); ctx.arc(c.x + c.width / 2, c.y + 10, c.width / 2, Math.PI, 0); ctx.fill();
+        }
     });
 }
 
