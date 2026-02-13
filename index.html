@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpongeBob Minecraft Adventure</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui-layer">
+            <!-- Score removed to prevent overlap with canvas drawing -->
+            <div id="start-screen">
+                <h1>SpongeBob's Blocky Dash</h1>
+                <p>Press SPACE or TAP to Jump</p>
+                <button id="start-btn">START GAME</button>
+            </div>
+            <div id="game-over-screen" class="hidden">
+                <h1>GAME OVER</h1>
+                <p>Score: <span id="final-score">0</span></p>
+                <button id="restart-btn">TRY AGAIN</button>
+            </div>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+
+</html>
