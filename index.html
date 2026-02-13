@@ -12,6 +12,20 @@
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
         <div id="ui-layer">
+            <!-- Settings Gear (visible during gameplay) -->
+            <button id="settings-btn" class="hidden">⚙</button>
+            <button id="menu-btn" class="hidden">🏠</button>
+            <!-- Settings Overlay -->
+            <div id="settings-overlay" class="hidden">
+                <h2>⚙ SETTINGS</h2>
+                <div class="settings-row">
+                    <span>Speed:</span>
+                    <input type="range" id="speed-slider" min="0.5" max="2" step="0.1" value="1">
+                    <span id="speed-value">1.0x</span>
+                </div>
+                <button id="settings-menu-btn" style="background: #E65100; border-color: #FFB74D;">🏠 MAIN MENU</button>
+                <button id="settings-close-btn">CLOSE</button>
+            </div>
             <!-- World Selection Screen -->
             <div id="select-screen">
                 <h1>BLOCKY DASH</h1>
@@ -26,6 +40,16 @@
                         <span class="card-icon">🐱</span>
                         <span class="card-title">Cat's Blocky Dash</span>
                         <span class="card-desc">Pounce through Cat World!</span>
+                    </button>
+                    <button class="select-card bluey-card" id="select-bluey">
+                        <span class="card-icon">🐕</span>
+                        <span class="card-title">Bluey's Blocky Dash</span>
+                        <span class="card-desc">Play in the backyard!</span>
+                    </button>
+                    <button class="select-card scary-card" id="select-scary">
+                        <span class="card-icon">💀</span>
+                        <span class="card-title">Nightmare Dash</span>
+                        <span class="card-desc">Survive the dark!</span>
                     </button>
                 </div>
             </div>

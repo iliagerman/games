@@ -24,24 +24,42 @@ function playSound(type) {
     gain.connect(audioCtx.destination);
 
     if (type === 'jump') {
-        osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-        osc.frequency.linearRampToValueAtTime(500, audioCtx.currentTime + 0.1);
+        osc.type = 'triangle';
+        if (gameMode === 'scary') osc.type = 'sawtooth'; // Rougher jump sound
+
+        let startFreq = 300, endFreq = 450;
+        if (gameMode === 'scary') { startFreq = 150; endFreq = 200; } // Low moan jump
+        else if (gameMode === 'cat') { startFreq = 400; endFreq = 600; } // Higher meow-ish
+
+        osc.frequency.setValueAtTime(startFreq, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(endFreq, audioCtx.currentTime + 0.1);
         gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.3);
+        osc.stop(audioCtx.currentTime + 0.1);
     } else if (type === 'collect') {
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-        osc.frequency.setValueAtTime(800, audioCtx.currentTime + 0.1);
+        let freq = 600;
+        if (gameMode === 'scary') {
+            osc.type = 'square'; freq = 200; // Eerie chime
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(freq - 50, audioCtx.currentTime + 0.1);
+        } else {
+            if (gameMode === 'cat') freq = 800;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(freq + 200, audioCtx.currentTime + 0.1);
+        }
+
         gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.2);
+        osc.stop(audioCtx.currentTime + 0.1);
     } else if (type === 'gameover') {
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(200, audioCtx.currentTime);
-        osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.5);
+        if (gameMode === 'scary') osc.type = 'square'; // Harsh static
+
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.5);
         gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
         gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
         osc.start();
@@ -51,7 +69,9 @@ function playSound(type) {
 
 // Game State
 let gameState = 'SELECT'; // SELECT, START, PLAYING, GAMEOVER
-let gameMode = null; // 'spongebob' or 'cat'
+let gameMode = null; // 'spongebob', 'cat', 'bluey', or 'scary'
+let gameSpeed = 1.0; // 0.5 – 2.0, controlled by settings
+let settingsOpen = false;
 let score = 0;
 let lives = 5; // Start with 5 lives
 let sceneTimer = 0;
@@ -75,28 +95,68 @@ const startBtn = document.getElementById('start-btn');
 const restartBtn = document.getElementById('restart-btn');
 const selectSpongebob = document.getElementById('select-spongebob');
 const selectCat = document.getElementById('select-cat');
+const selectBluey = document.getElementById('select-bluey');
+const selectScary = document.getElementById('select-scary');
+const settingsBtn = document.getElementById('settings-btn');
+const settingsOverlay = document.getElementById('settings-overlay');
+const settingsCloseBtn = document.getElementById('settings-close-btn');
+const speedSlider = document.getElementById('speed-slider');
+const speedValue = document.getElementById('speed-value');
+const settingsMenuBtn = document.getElementById('settings-menu-btn'); // New button
 
 function selectMode(mode) {
     gameMode = mode;
     selectScreen.classList.add('hidden');
     startScreen.classList.remove('hidden');
-    if (mode === 'spongebob') {
-        gameTitle.textContent = "SpongeBob's Blocky Dash";
-    } else {
-        gameTitle.textContent = "Cat's Blocky Dash";
-    }
+    const titles = {
+        spongebob: "SpongeBob's Blocky Dash",
+        cat: "Cat's Blocky Dash",
+        bluey: "Bluey's Blocky Dash",
+        scary: "Nightmare Dash"
+    };
+    gameTitle.textContent = titles[mode] || "Blocky Dash";
 }
 
 // Event Listeners
-selectSpongebob.addEventListener('click', () => { initAudio(); selectMode('spongebob'); });
-selectCat.addEventListener('click', () => { initAudio(); selectMode('cat'); });
-selectSpongebob.addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); selectMode('spongebob'); }, { passive: false });
-selectCat.addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); selectMode('cat'); }, { passive: false });
+const modeButtons = { spongebob: selectSpongebob, cat: selectCat, bluey: selectBluey, scary: selectScary };
+Object.entries(modeButtons).forEach(([mode, btn]) => {
+    btn.addEventListener('click', () => { initAudio(); selectMode(mode); });
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); selectMode(mode); }, { passive: false });
+});
+
+// Settings
+settingsBtn.addEventListener('click', () => {
+    settingsOverlay.classList.remove('hidden');
+    gameSpeed = parseFloat(speedSlider.value); // Ensure it's synced
+});
+settingsBtn.addEventListener('touchstart', (e) => { e.preventDefault(); settingsBtn.click(); }, { passive: false });
+settingsCloseBtn.addEventListener('click', () => {
+    settingsOverlay.classList.add('hidden');
+});
+settingsCloseBtn.addEventListener('touchstart', (e) => { e.preventDefault(); settingsCloseBtn.click(); }, { passive: false });
+settingsMenuBtn.addEventListener('click', () => {
+    initAudio();
+    stopMusic();
+    resetGame();
+    selectScreen.classList.remove('hidden');
+    startScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    settingsOverlay.classList.add('hidden');
+    settingsBtn.classList.add('hidden');
+    menuBtn.classList.add('hidden');
+});
+settingsMenuBtn.addEventListener('touchstart', (e) => { e.preventDefault(); settingsMenuBtn.click(); }, { passive: false });
+speedSlider.addEventListener('input', (e) => {
+    gameSpeed = parseFloat(e.target.value);
+    speedValue.textContent = gameSpeed.toFixed(1) + 'x';
+});
+
 startBtn.addEventListener('click', () => { initAudio(); startGame(); });
 restartBtn.addEventListener('click', () => { initAudio(); resetGame(); });
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
         e.preventDefault();
+        if (e.repeat) return; // Ignore key repeat — prevents burning both jumps at once
         initAudio();
         handleInput();
     }
@@ -119,6 +179,26 @@ restartBtn.addEventListener('touchstart', (e) => {
     initAudio();
     resetGame();
 }, { passive: false });
+
+// Menu Button Listener
+const menuBtn = document.getElementById('menu-btn');
+menuBtn.addEventListener('click', () => {
+    initAudio();
+    stopMusic();
+    resetGame();
+    selectScreen.classList.remove('hidden');
+    startScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    settingsOverlay.classList.add('hidden');
+    // Hide in-game buttons
+    settingsBtn.classList.add('hidden');
+    menuBtn.classList.add('hidden');
+});
+menuBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    menuBtn.click();
+}, { passive: false });
+
 // Prevent scrolling/zooming on the game area
 document.getElementById('game-container').addEventListener('touchmove', (e) => {
     e.preventDefault();
@@ -134,15 +214,18 @@ function startGame() {
     gameState = 'PLAYING';
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
+    settingsBtn.classList.remove('hidden');
     score = 0;
     lives = 5; // Reset lives
     sceneTimer = 0;
-    currentScene = (gameMode === 'cat') ? 'COZY_HOUSE' : 'BIKINI_BOTTOM';
+    const startScenes = { spongebob: 'BIKINI_BOTTOM', cat: 'COZY_HOUSE', bluey: 'BACKYARD', scary: 'HAUNTED_HOUSE' };
+    currentScene = startScenes[gameMode] || 'BIKINI_BOTTOM';
 
     // Reset entities
     player.y = 300;
     player.vy = 0;
     player.invulnerable = 0;
+    player.jumpCount = 0;
     obstacles = [];
     collectibles = [];
     bgCharacters = [];
@@ -162,6 +245,9 @@ function resetGame() {
     gameMode = null;
     gameOverScreen.classList.add('hidden');
     startScreen.classList.add('hidden');
+    settingsBtn.classList.add('hidden');
+    settingsOverlay.classList.add('hidden');
+    settingsOpen = false;
     selectScreen.classList.remove('hidden');
     stopMusic();
 }
@@ -173,19 +259,34 @@ function startMusic() {
     // Simple cheerful melody (C Major scale-ish)
     let melody;
     if (gameMode === 'cat') {
-        // Playful cat melody (bouncy, curious feel)
         melody = [
-            523.25, 0, 659.25, 783.99, 659.25, 0, 523.25, 0,   // C, E, G, E, C
-            783.99, 0, 698.46, 659.25, 587.33, 0, 523.25, 0,   // G, F, E, D, C
-            440.00, 0, 523.25, 587.33, 659.25, 0, 783.99, 0,   // A, C, D, E, G
-            698.46, 0, 659.25, 0, 587.33, 0, 523.25, 0         // F, E, D, C
+            523.25, 0, 659.25, 783.99, 659.25, 0, 523.25, 0,
+            783.99, 0, 698.46, 659.25, 587.33, 0, 523.25, 0,
+            440.00, 0, 523.25, 587.33, 659.25, 0, 783.99, 0,
+            698.46, 0, 659.25, 0, 587.33, 0, 523.25, 0
+        ];
+    } else if (gameMode === 'bluey') {
+        // Playful, bouncy Australian-feel melody
+        melody = [
+            392.00, 0, 493.88, 523.25, 587.33, 0, 523.25, 0,
+            659.25, 0, 587.33, 523.25, 493.88, 0, 392.00, 0,
+            440.00, 0, 493.88, 523.25, 587.33, 0, 659.25, 0,
+            587.33, 0, 523.25, 0, 493.88, 0, 392.00, 0
+        ];
+    } else if (gameMode === 'scary') {
+        // Eerie minor-key melody
+        melody = [
+            196.00, 0, 207.65, 0, 233.08, 0, 207.65, 0,
+            185.00, 0, 196.00, 0, 174.61, 0, 164.81, 0,
+            196.00, 0, 0, 0, 233.08, 0, 0, 0,
+            174.61, 0, 0, 0, 164.81, 0, 0, 0
         ];
     } else {
         melody = [
-            392.00, 0, 392.00, 440.00, 392.00, 0, 493.88, 523.25, // G, G, A, G, B, C
-            523.25, 0, 392.00, 329.63, 261.63, 0, 293.66, 329.63, // C, G, E, C, D, E (SpongeBob-ish feel)
-            392.00, 0, 392.00, 392.00, 440.00, 0, 392.00, 349.23, // G, G, G, A, G, F
-            329.63, 0, 293.66, 0, 261.63, 0, 261.63, 0            // E, D, C, C
+            392.00, 0, 392.00, 440.00, 392.00, 0, 493.88, 523.25,
+            523.25, 0, 392.00, 329.63, 261.63, 0, 293.66, 329.63,
+            392.00, 0, 392.00, 392.00, 440.00, 0, 392.00, 349.23,
+            329.63, 0, 293.66, 0, 261.63, 0, 261.63, 0
         ];
     }
 
@@ -217,9 +318,10 @@ function stopMusic() {
 }
 
 function playerJump() {
-    if (player.grounded || player.y > 250) {
-        player.vy = -14;
+    if (player.jumpCount < 2) {
+        player.vy = player.jumpCount === 0 ? -14 : -11;
         player.grounded = false;
+        player.jumpCount++;
         playSound('jump');
     }
 }
@@ -236,7 +338,8 @@ const player = {
     height: 50,
     vy: 0,
     grounded: false,
-    invulnerable: 0
+    invulnerable: 0,
+    jumpCount: 0
 };
 
 let obstacles = [];
@@ -245,6 +348,7 @@ let bgCharacters = [];
 
 function gameLoop() {
     if (gameState !== 'PLAYING') return;
+    if (settingsOpen) { requestAnimationFrame(gameLoop); return; }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     gameTick++;
@@ -264,22 +368,73 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
+function isOverPit() {
+    const playerLeft = player.x + 10; // Use inner bounds so edges don't trigger
+    const playerRight = player.x + player.width - 10;
+    for (let o of obstacles) {
+        if (o.isPit && playerLeft < o.x + o.width && playerRight > o.x) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function updatePhysics() {
     player.vy += 0.4; // Low gravity
     player.y += player.vy;
 
-    if (player.y >= 350) {
+    const overPit = isOverPit();
+
+    if (!overPit && player.y >= 350) {
         player.y = 350;
         player.vy = 0;
         player.grounded = true;
+        player.jumpCount = 0;
+    } else if (overPit && player.y >= 350) {
+        // Player is falling into a pit
+        player.grounded = false;
+    }
+
+    // Fell into pit — lose a life and respawn
+    if (player.y > 500) {
+        if (player.invulnerable <= 0) {
+            lives--;
+            player.invulnerable = 60;
+
+            if (audioCtx && audioCtx.state !== 'suspended') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.4);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.4);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.4);
+            }
+
+            if (lives <= 0) {
+                gameState = 'GAMEOVER';
+                gameOverScreen.classList.remove('hidden');
+                finalScoreDisplay.innerText = score;
+                playSound('gameover');
+                stopMusic();
+                return;
+            }
+        }
+        // Respawn above ground
+        player.y = 200;
+        player.vy = 0;
     }
 
     // Scroll speed (slowed down for better gameplay)
-    obstacles.forEach(o => o.x -= 2);
-    collectibles.forEach(c => c.x -= 2);
-    bgCharacters.forEach(b => b.x -= 1.5);
+    obstacles.forEach(o => o.x -= 2 * gameSpeed);
+    collectibles.forEach(c => c.x -= 2 * gameSpeed);
+    bgCharacters.forEach(b => b.x -= 1.5 * gameSpeed);
     bgCreatures.forEach(c => {
-        c.x -= c.speed;
+        c.x -= c.speed * gameSpeed;
         c.y += Math.sin(gameTick * c.wobbleSpeed + c.wobbleOffset) * 0.3;
     });
 
@@ -296,6 +451,12 @@ function spawnEntities() {
         if (gameMode === 'cat') {
             const catFriends = ['Kitten', 'FatCat', 'BlackCat'];
             type = catFriends[Math.floor(Math.random() * catFriends.length)];
+        } else if (gameMode === 'bluey') {
+            const blueyFriends = ['Bingo', 'Bandit', 'Chilli', 'Muffin', 'Socks', 'Mackenzie', 'Rusty', 'Judo', 'Chloe'];
+            type = blueyFriends[Math.floor(Math.random() * blueyFriends.length)];
+        } else if (gameMode === 'scary') {
+            const scaryFriends = ['Skeleton', 'Ghost', 'Zombie'];
+            type = scaryFriends[Math.floor(Math.random() * scaryFriends.length)];
         } else {
             const friends = ['Patrick', 'Squidward', 'Gary'];
             type = friends[Math.floor(Math.random() * friends.length)];
@@ -311,16 +472,8 @@ function spawnEntities() {
 
     // 2. Obstacles (only blocks)
     if (obstacles.length === 0 || (800 - obstacles[obstacles.length - 1].x > 300)) {
-        if (Math.random() < 0.01) {
-            const typeProb = Math.random();
-            let newObstacle;
-
-            if (typeProb < 0.55) {
-                newObstacle = { x: 800, y: 350, width: 40, height: 40, type: 'block' };
-            } else {
-                newObstacle = { x: 800, y: 330, width: 40, height: 60, type: 'tall_block' };
-            }
-            obstacles.push(newObstacle);
+        if (Math.random() < 0.02) {
+            spawnObstacle();
         }
     }
 
@@ -330,6 +483,12 @@ function spawnEntities() {
         if (gameMode === 'cat') {
             const catCreatures = ['butterfly', 'mouse', 'bird', 'dragonfly'];
             type = catCreatures[Math.floor(Math.random() * catCreatures.length)];
+        } else if (gameMode === 'bluey') {
+            const blueyCreatures = ['cockatoo', 'lizard', 'ibis', 'frog'];
+            type = blueyCreatures[Math.floor(Math.random() * blueyCreatures.length)];
+        } else if (gameMode === 'scary') {
+            const scaryCreatures = ['bat', 'spider', 'crow', 'wisp'];
+            type = scaryCreatures[Math.floor(Math.random() * scaryCreatures.length)];
         } else {
             const creatureTypes = ['jellyfish', 'fish_blue', 'fish_yellow', 'fish_green'];
             type = creatureTypes[Math.floor(Math.random() * creatureTypes.length)];
@@ -347,13 +506,76 @@ function spawnEntities() {
 
     // 4. Collectibles
     if (Math.random() < 0.01) {
-        let collectType = (gameMode === 'cat') ? 'fish' : 'patty';
+        let collectType = 'patty';
+        if (gameMode === 'cat') collectType = 'fish';
+        else if (gameMode === 'bluey') collectType = 'bone';
+        else if (gameMode === 'scary') collectType = 'skull';
         collectibles.push({ x: 800, y: 250 - Math.random() * 50, width: 30, height: 30, type: collectType });
     }
 }
 
+function spawnObstacle() {
+    const GROUND_Y = 400; // Top of the ground row
+    let roll = Math.random();
+    let type;
+
+    if (roll < 0.15) {
+        type = 'pit';
+    } else if (roll < 0.35) {
+        type = 'tall_block';
+    } else {
+        type = 'block';
+    }
+
+    if (gameMode === 'scary' && type === 'block' && Math.random() < 0.3) type = 'spike';
+
+    // Flying obstacles for Cat and Bluey (Hard Mode elements)
+    if ((gameMode === 'cat' || gameMode === 'bluey') && type === 'block' && Math.random() < 0.3) {
+        type = 'flying';
+    }
+
+    let newObstacle = {
+        x: 800 + Math.random() * 100,
+        y: GROUND_Y - 40, // sits on top of the ground
+        width: 40,
+        height: 40,
+        type: type,
+        isObstacle: true
+    };
+
+    if (type === 'tall_block') {
+        newObstacle.height = 70;
+        newObstacle.y = GROUND_Y - 70;
+    }
+    else if (type === 'spike') {
+        newObstacle.width = 30; newObstacle.height = 30;
+        newObstacle.y = GROUND_Y - 30;
+    }
+    else if (type === 'flying') {
+        newObstacle.width = 40; newObstacle.height = 30;
+        newObstacle.y = 210;
+        newObstacle.speedY = Math.random() * 2 - 1;
+    }
+    else if (type === 'pit') {
+        // Pit: a gap in the ground the player must jump over
+        let pitWidth = 60 + Math.floor(Math.random() * 40); // 60-100px wide
+        newObstacle.width = pitWidth;
+        newObstacle.height = 50; // depth of the pit (visual)
+        newObstacle.y = GROUND_Y; // starts at ground level
+        newObstacle.isPit = true;
+        newObstacle.isObstacle = false; // don't use normal collision
+    }
+
+    // Prevent overlap
+    let minGap = type === 'pit' ? 200 : 150;
+    for (let o of obstacles) {
+        if (Math.abs(o.x - newObstacle.x) < minGap) return;
+    }
+    obstacles.push(newObstacle);
+}
+
 function checkCollisions() {
-    const padding = 12;
+    const padding = 6; // Reduced from 12 to make collisions more accurate
 
     obstacles.forEach(o => {
         if (player.x + padding < o.x + o.width - padding &&
@@ -423,12 +645,13 @@ function updateScene() {
 }
 
 function switchScene() {
-    let sequence;
-    if (gameMode === 'cat') {
-        sequence = ['COZY_HOUSE', 'GARDEN', 'ROOFTOP', 'FISH_MARKET', 'ALLEY', 'YARNIA', 'CATNIP_FIELDS', 'MOONLIT_ROOF', 'CAT_CAFE', 'LASER_LAND'];
-    } else {
-        sequence = ['BIKINI_BOTTOM', 'KELP_FOREST', 'GOO_LAGOON', 'JELLYFISH_FIELDS', 'CHUM_BUCKET', 'DEEP_OCEAN', 'GLOVE_WORLD', 'KRUSTY_KRAB', 'FLYING_DUTCHMAN', 'BOATING_SCHOOL'];
-    }
+    const sequences = {
+        spongebob: ['BIKINI_BOTTOM', 'KELP_FOREST', 'GOO_LAGOON', 'JELLYFISH_FIELDS', 'CHUM_BUCKET', 'DEEP_OCEAN', 'GLOVE_WORLD', 'KRUSTY_KRAB', 'FLYING_DUTCHMAN', 'BOATING_SCHOOL'],
+        cat: ['COZY_HOUSE', 'GARDEN', 'ROOFTOP', 'FISH_MARKET', 'ALLEY', 'YARNIA', 'CATNIP_FIELDS', 'MOONLIT_ROOF', 'CAT_CAFE', 'LASER_LAND'],
+        bluey: ['BACKYARD', 'CREEK', 'PLAYGROUND', 'BEACH', 'GRANNYS_HOUSE', 'BUSH_WALK', 'DANCE_FLOOR', 'MARKET', 'CAMPING', 'HEELER_HOUSE'],
+        scary: ['HAUNTED_HOUSE', 'GRAVEYARD', 'DARK_FOREST', 'DUNGEON', 'GHOST_SHIP', 'ABANDONED_ASYLUM', 'BLOOD_MOON', 'SPIDER_CAVE', 'WITCH_SWAMP', 'DEMON_REALM']
+    };
+    let sequence = sequences[gameMode] || sequences.spongebob;
     let idx = sequence.indexOf(currentScene);
     idx = (idx + 1) % sequence.length;
     currentScene = sequence[idx];
@@ -458,6 +681,28 @@ function drawBackground() {
     if (currentScene === 'MOONLIT_ROOF') skyColor = '#0D1B2A';
     if (currentScene === 'CAT_CAFE') skyColor = '#D7CCC8';
     if (currentScene === 'LASER_LAND') skyColor = '#1A0033';
+    // Bluey World sky colors
+    if (currentScene === 'BACKYARD') skyColor = '#87CEEB';
+    if (currentScene === 'CREEK') skyColor = '#5DA9E9';
+    if (currentScene === 'PLAYGROUND') skyColor = '#64B5F6';
+    if (currentScene === 'BEACH') skyColor = '#29B6F6';
+    if (currentScene === 'GRANNYS_HOUSE') skyColor = '#FFF8E1';
+    if (currentScene === 'BUSH_WALK') skyColor = '#66BB6A';
+    if (currentScene === 'DANCE_FLOOR') skyColor = '#7B1FA2';
+    if (currentScene === 'MARKET') skyColor = '#FFF3E0';
+    if (currentScene === 'CAMPING') skyColor = '#0D1B2A';
+    if (currentScene === 'HEELER_HOUSE') skyColor = '#81D4FA';
+    // Scary World sky colors
+    if (currentScene === 'HAUNTED_HOUSE') skyColor = '#1A1A2E';
+    if (currentScene === 'GRAVEYARD') skyColor = '#16213E';
+    if (currentScene === 'DARK_FOREST') skyColor = '#0A0A0A';
+    if (currentScene === 'DUNGEON') skyColor = '#1C1C1C';
+    if (currentScene === 'GHOST_SHIP') skyColor = '#1A3A3A';
+    if (currentScene === 'ABANDONED_ASYLUM') skyColor = '#2C2C2C';
+    if (currentScene === 'BLOOD_MOON') skyColor = '#3B0000';
+    if (currentScene === 'SPIDER_CAVE') skyColor = '#0D0D0D';
+    if (currentScene === 'WITCH_SWAMP') skyColor = '#1B2A1B';
+    if (currentScene === 'DEMON_REALM') skyColor = '#1A0000';
 
     ctx.fillStyle = skyColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -833,6 +1078,7 @@ function drawBackground() {
         // Menu board on wall
         let menuX = (400 - gameTick / 10) % (canvas.width + 250);
         if (menuX < -100) menuX += canvas.width + 250;
+        ctx.globalAlpha = 0.6;
         ctx.fillStyle = '#2F4F4F';
         ctx.fillRect(menuX, 40, 110, 80);
         ctx.strokeStyle = '#8B4513';
@@ -1566,9 +1812,101 @@ function drawBackground() {
             ctx.beginPath(); ctx.arc(sx, sy, 2, 0, Math.PI * 2); ctx.fill();
         }
         ctx.globalAlpha = 1.0;
+    } else if (gameMode === 'bluey') {
+        // --- BLUEY WORLD BACKGROUNDS ---
+        if (currentScene === 'BACKYARD') {
+            // Heeler House on Hill
+            ctx.fillStyle = '#66BB6A';
+            ctx.beginPath(); ctx.ellipse(400, 420, 900, 150, 0, 0, Math.PI * 2); ctx.fill(); // Hill
+
+            // House Body (Cream/Yellowish)
+            let hx = (600 - gameTick * 0.2) % (canvas.width + 500);
+            if (hx < -300) hx += canvas.width + 500;
+
+            ctx.fillStyle = '#FFF59D'; // Cream walls
+            ctx.fillRect(hx, 220, 200, 140);
+
+            // Veranda/Deck
+            ctx.fillStyle = '#8D6E63'; // Brown wood
+            ctx.fillRect(hx - 20, 300, 240, 10); // Floor
+            ctx.fillRect(hx - 20, 220, 10, 80); // Post L
+            ctx.fillRect(hx + 210, 220, 10, 80); // Post R
+            ctx.fillRect(hx + 95, 220, 10, 80); // Post Mid
+
+            // Roof (Red/Orange)
+            ctx.fillStyle = '#E65100';
+            ctx.beginPath(); ctx.moveTo(hx - 40, 220); ctx.lineTo(hx + 100, 150); ctx.lineTo(hx + 240, 220); ctx.fill();
+
+            // Windows
+            ctx.fillStyle = '#81D4FA';
+            ctx.fillRect(hx + 20, 250, 40, 40);
+            ctx.fillRect(hx + 140, 250, 40, 40);
+
+            // Fence
+            ctx.fillStyle = '#8D6E63';
+            for (let i = 0; i < 20; i++) {
+                let fx = (i * 50 - gameTick * 0.5) % (canvas.width + 100);
+                if (fx < -50) fx += canvas.width + 100;
+                ctx.fillRect(fx, 340, 10, 50);
+                ctx.fillRect(fx, 350, 50, 5);
+            }
+        } else if (currentScene === 'CREEK') {
+            // Water stream
+            ctx.fillStyle = '#4FC3F7';
+            ctx.fillRect(0, 300, canvas.width, 100);
+            // Rocks
+            ctx.fillStyle = '#9E9E9E';
+            for (let i = 0; i < 5; i++) {
+                let rx = (i * 200 + 50 - gameTick * 0.5) % (canvas.width + 200);
+                if (rx < -50) rx += canvas.width + 200;
+                ctx.beginPath(); ctx.arc(rx, 340, 20 + i * 5, 0, Math.PI, true); ctx.fill();
+            }
+        } else if (currentScene === 'PLAYGROUND') {
+            // Slide/Swings silhouette
+            ctx.fillStyle = '#EF5350';
+            let sx = (600 - gameTick * 0.5) % (canvas.width + 400);
+            if (sx < -100) sx += canvas.width + 400;
+            ctx.beginPath(); ctx.moveTo(sx, 350); ctx.lineTo(sx + 50, 250); ctx.lineTo(sx + 100, 350); ctx.fill();
+        }
+        // Default Bluey clouds for other scenes
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        for (let i = 0; i < 5; i++) {
+            let cx = (i * 180 + gameTick * 0.2) % (canvas.width + 200) - 100;
+            let cy = 50 + i * 30;
+            ctx.beginPath(); ctx.arc(cx, cy, 30, 0, Math.PI * 2); ctx.arc(cx + 25, cy - 10, 35, 0, Math.PI * 2); ctx.arc(cx + 50, cy, 30, 0, Math.PI * 2); ctx.fill();
+        }
+
+    } else if (gameMode === 'scary') {
+        // --- SCARY WORLD BACKGROUNDS ---
+        // Dead trees
+        ctx.fillStyle = '#1a1a1a';
+        for (let i = 0; i < 4; i++) {
+            let tx = (i * 300 + 100 - gameTick * 0.5) % (canvas.width + 200);
+            if (tx < -50) tx += canvas.width + 200;
+            ctx.fillRect(tx, 200, 15, 150); // trunk
+            // branches
+            ctx.beginPath(); ctx.moveTo(tx, 250); ctx.lineTo(tx - 30, 220); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(tx + 15, 240); ctx.lineTo(tx + 45, 210); ctx.stroke();
+        }
+
+        if (currentScene === 'GRAVEYARD') {
+            // Tombstones
+            ctx.fillStyle = '#424242';
+            for (let i = 0; i < 6; i++) {
+                let gx = (i * 150 + 50 - gameTick * 0.5) % (canvas.width + 100);
+                if (gx < -30) gx += canvas.width + 100;
+                ctx.beginPath(); ctx.moveTo(gx, 350); ctx.lineTo(gx, 310);
+                ctx.arc(gx + 15, 310, 15, Math.PI, 0);
+                ctx.lineTo(gx + 30, 350); ctx.fill();
+            }
+        } else if (currentScene === 'HAUNTED_HOUSE') {
+            // Moon
+            ctx.fillStyle = '#FFF9C4';
+            ctx.beginPath(); ctx.arc(700, 80, 40, 0, Math.PI * 2); ctx.fill();
+        }
     }
 
-    // Underwater bubbles on SpongeBob scenes only, floating dust on cat scenes
+    // Underwater bubbles on SpongeBob, dust on Cat, pollen on Bluey, fog/embers on Scary
     if (gameMode === 'cat') {
         // Floating dust motes
         ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
@@ -1577,6 +1915,30 @@ function drawBackground() {
             let dy = (250 - (gameTick * 0.2 + i * 45) % 300);
             if (dy < -5) dy += 300;
             ctx.beginPath(); ctx.arc(dx, dy, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+    } else if (gameMode === 'bluey') {
+        // Floating pollen/leaves
+        ctx.fillStyle = 'rgba(255, 235, 59, 0.4)';
+        for (let i = 0; i < 10; i++) {
+            let px = (i * 83 + gameTick * 0.5) % canvas.width;
+            let py = (i * 57 + Math.sin(gameTick * 0.05 + i) * 20) % 400;
+            ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI * 2); ctx.fill();
+        }
+    } else if (gameMode === 'scary') {
+        // Fog/Mist
+        ctx.fillStyle = 'rgba(200, 200, 200, 0.05)';
+        for (let i = 0; i < 5; i++) {
+            let mx = (gameTick * 0.2 + i * 200) % (canvas.width + 400) - 200;
+            ctx.beginPath(); ctx.ellipse(mx, 300, 150, 40, 0, 0, Math.PI * 2); ctx.fill();
+        }
+        // Embers (if in hell/dungeon scenes)
+        if (currentScene === 'DEMON_REALM' || currentScene === 'DUNGEON') {
+            ctx.fillStyle = 'rgba(255, 87, 34, 0.6)';
+            for (let i = 0; i < 15; i++) {
+                let ex = (i * 43 + Math.sin(gameTick * 0.1) * 10) % canvas.width;
+                let ey = (400 - (gameTick * 1.5 + i * 20) % 400);
+                ctx.fillRect(ex, ey, 2, 2);
+            }
         }
     } else {
         drawUnderwaterBubbles();
@@ -1646,9 +2008,43 @@ function drawScrollingGround() {
     if (currentScene === 'CAT_CAFE') { mainColor = '#A1887F'; detailColor = '#8D6E63'; }
     if (currentScene === 'LASER_LAND') { mainColor = '#4A148C'; detailColor = '#311B92'; }
 
+    // Bluey World Ground Colors
+    if (currentScene === 'BACKYARD') { mainColor = '#8BC34A'; detailColor = '#689F38'; }
+    if (currentScene === 'CREEK') { mainColor = '#A1887F'; detailColor = '#8D6E63'; }
+    if (currentScene === 'PLAYGROUND') { mainColor = '#FFCC80'; detailColor = '#FFB74D'; }
+    if (currentScene === 'BEACH') { mainColor = '#FFF59D'; detailColor = '#FFF176'; }
+    if (currentScene === 'GRANNYS_HOUSE') { mainColor = '#D7CCC8'; detailColor = '#BCAAA4'; }
+    if (currentScene === 'BUSH_WALK') { mainColor = '#558B2F'; detailColor = '#33691E'; }
+    if (currentScene === 'DANCE_FLOOR') { mainColor = '#BA68C8'; detailColor = '#AB47BC'; }
+    if (currentScene === 'MARKET') { mainColor = '#F48FB1'; detailColor = '#F06292'; }
+    if (currentScene === 'CAMPING') { mainColor = '#3E2723'; detailColor = '#4E342E'; }
+    if (currentScene === 'HEELER_HOUSE') { mainColor = '#FFAB91'; detailColor = '#FF8A65'; }
+
+    // Scary World Ground Colors
+    if (currentScene === 'HAUNTED_HOUSE') { mainColor = '#424242'; detailColor = '#212121'; }
+    if (currentScene === 'GRAVEYARD') { mainColor = '#3E2723'; detailColor = '#1B0000'; }
+    if (currentScene === 'DARK_FOREST') { mainColor = '#1B5E20'; detailColor = '#003300'; }
+    if (currentScene === 'DUNGEON') { mainColor = '#616161'; detailColor = '#424242'; }
+    if (currentScene === 'GHOST_SHIP') { mainColor = '#004D40'; detailColor = '#00251A'; }
+    if (currentScene === 'ABANDONED_ASYLUM') { mainColor = '#BDBDBD'; detailColor = '#9E9E9E'; }
+    if (currentScene === 'BLOOD_MOON') { mainColor = '#880E4F'; detailColor = '#4A0033'; }
+    if (currentScene === 'SPIDER_CAVE') { mainColor = '#263238'; detailColor = '#000A12'; }
+    if (currentScene === 'WITCH_SWAMP') { mainColor = '#33691E'; detailColor = '#1B5E20'; }
+    if (currentScene === 'DEMON_REALM') { mainColor = '#BF360C'; detailColor = '#870000'; }
+
     for (let x = -blockWidth; x < canvas.width + blockWidth; x += blockWidth) {
         let drawX = x - offset;
         let groundY = 400;
+
+        // Skip ground blocks that overlap with a pit
+        let inPit = false;
+        for (let o of obstacles) {
+            if (o.isPit && drawX + blockWidth > o.x && drawX < o.x + o.width) {
+                inPit = true;
+                break;
+            }
+        }
+        if (inPit) continue;
 
         ctx.fillStyle = mainColor;
         ctx.fillRect(drawX, groundY, blockWidth, blockWidth);
@@ -1685,6 +2081,25 @@ function drawScrollingGround() {
         ctx.lineWidth = 2;
         ctx.strokeRect(drawX, groundY, blockWidth, blockWidth);
     }
+
+    // Draw pits (dark hole visual)
+    obstacles.forEach(o => {
+        if (!o.isPit) return;
+        // Dark pit interior
+        ctx.fillStyle = '#1a0a00';
+        ctx.fillRect(o.x, 400, o.width, 50);
+        // Inner shadow gradient
+        ctx.fillStyle = '#0d0500';
+        ctx.fillRect(o.x + 4, 410, o.width - 8, 40);
+        // Edge highlights (broken ground look)
+        ctx.fillStyle = '#5D4037';
+        ctx.fillRect(o.x - 3, 400, 6, 10); // left edge
+        ctx.fillRect(o.x + o.width - 3, 400, 6, 10); // right edge
+        // Warning stripes at edges
+        ctx.fillStyle = '#FF5722';
+        ctx.fillRect(o.x, 398, 4, 4);
+        ctx.fillRect(o.x + o.width - 4, 398, 4, 4);
+    });
 }
 
 function drawBgCharacters() {
@@ -1849,6 +2264,277 @@ function drawBgCharacters() {
             ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
             ctx.beginPath(); ctx.moveTo(30, 30);
             ctx.quadraticCurveTo(42, 20, 38, 5 + Math.sin(gameTick * 0.06) * 3); ctx.stroke();
+        }
+        // === Bluey World Background Characters ===
+        else if (char.type === 'Bingo') {
+            // Bingo — red heeler puppy (Bluey's sister)
+            ctx.fillStyle = '#E88B5A';
+            ctx.beginPath(); ctx.ellipse(20, 28, 12, 10, 0, 0, Math.PI * 2); ctx.fill(); // body
+            ctx.fillStyle = '#E88B5A';
+            ctx.beginPath(); ctx.arc(20, 12, 10, 0, Math.PI * 2); ctx.fill(); // head
+            // Ears (floppy)
+            ctx.fillStyle = '#C0724A';
+            ctx.beginPath(); ctx.ellipse(9, 5, 5, 8, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(31, 5, 5, 8, 0.3, 0, Math.PI * 2); ctx.fill();
+            // Face mask
+            ctx.fillStyle = '#C0724A';
+            ctx.beginPath(); ctx.arc(20, 14, 6, 0, Math.PI * 2); ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.arc(16, 11, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 11, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(16, 11, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 11, 1, 0, Math.PI * 2); ctx.fill();
+            // Snout
+            ctx.fillStyle = '#FFF3E0';
+            ctx.fillRect(15, 14, 10, 6);
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.ellipse(20, 15, 2, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+            // Legs
+            ctx.fillStyle = '#E88B5A';
+            ctx.fillRect(12, 36, 5, 8); ctx.fillRect(23, 36, 5, 8);
+            // Tail
+            ctx.strokeStyle = '#C0724A'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(32, 28);
+            ctx.quadraticCurveTo(40, 20 + Math.sin(gameTick * 0.1) * 4, 38, 15); ctx.stroke();
+        }
+        else if (char.type === 'Bandit') {
+            // Bandit — Dad, big blue heeler
+            ctx.fillStyle = '#37474F';
+            ctx.beginPath(); ctx.ellipse(20, 25, 14, 14, 0, 0, Math.PI * 2); ctx.fill(); // body
+            ctx.fillStyle = '#37474F';
+            ctx.beginPath(); ctx.arc(20, 8, 11, 0, Math.PI * 2); ctx.fill(); // head
+            // Ears (pointy)
+            ctx.fillStyle = '#263238';
+            ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(7, -10); ctx.lineTo(15, -1); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(33, -10); ctx.lineTo(25, -1); ctx.fill();
+            // Tan mask
+            ctx.fillStyle = '#546E7A';
+            ctx.beginPath(); ctx.arc(20, 10, 6, 0, Math.PI * 2); ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.arc(16, 8, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 8, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(16, 8, 1.2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 8, 1.2, 0, Math.PI * 2); ctx.fill();
+            // Snout
+            ctx.fillStyle = '#FFF3E0';
+            ctx.fillRect(14, 11, 12, 7);
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.ellipse(20, 12, 2.5, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+            // Legs
+            ctx.fillStyle = '#37474F';
+            ctx.fillRect(10, 37, 6, 10); ctx.fillRect(24, 37, 6, 10);
+        }
+        else if (char.type === 'Chilli') {
+            // Chilli — Mom, red heeler
+            ctx.fillStyle = '#D84315';
+            ctx.beginPath(); ctx.ellipse(20, 26, 12, 12, 0, 0, Math.PI * 2); ctx.fill(); // body
+            ctx.fillStyle = '#D84315';
+            ctx.beginPath(); ctx.arc(20, 10, 10, 0, Math.PI * 2); ctx.fill(); // head
+            // Ears (floppy)
+            ctx.fillStyle = '#BF360C';
+            ctx.beginPath(); ctx.ellipse(9, 3, 5, 7, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(31, 3, 5, 7, 0.3, 0, Math.PI * 2); ctx.fill();
+            // Face
+            ctx.fillStyle = '#BF360C';
+            ctx.beginPath(); ctx.arc(20, 12, 5, 0, Math.PI * 2); ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.arc(16, 9, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 9, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(16, 9, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 9, 1, 0, Math.PI * 2); ctx.fill();
+            // Snout
+            ctx.fillStyle = '#FFF3E0';
+            ctx.fillRect(15, 12, 10, 6);
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.ellipse(20, 13, 2, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+            // Legs
+            ctx.fillStyle = '#D84315';
+            ctx.fillRect(12, 36, 5, 8); ctx.fillRect(23, 36, 5, 8);
+            // Tail
+            ctx.strokeStyle = '#BF360C'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(32, 26);
+            ctx.quadraticCurveTo(42, 18 + Math.sin(gameTick * 0.08) * 3, 40, 12); ctx.stroke();
+        }
+        else if (char.type === 'Muffin') {
+            // Muffin — small white/light blue heeler (cousin)
+            ctx.fillStyle = '#E0E0E0';
+            ctx.beginPath(); ctx.ellipse(20, 28, 10, 8, 0, 0, Math.PI * 2); ctx.fill(); // body
+            ctx.beginPath(); ctx.arc(20, 14, 9, 0, Math.PI * 2); ctx.fill(); // head
+            // Ears
+            ctx.fillStyle = '#BDBDBD';
+            ctx.beginPath(); ctx.ellipse(10, 8, 4, 6, -0.2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(30, 8, 4, 6, 0.2, 0, Math.PI * 2); ctx.fill();
+            // Blue patches
+            ctx.fillStyle = '#90CAF9';
+            ctx.beginPath(); ctx.arc(13, 14, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(27, 14, 4, 0, Math.PI * 2); ctx.fill();
+            // Eyes (big, cute)
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.arc(16, 12, 3.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 12, 3.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(16, 12, 1.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 12, 1.5, 0, Math.PI * 2); ctx.fill();
+            // Nose
+            ctx.fillStyle = '#FFF3E0';
+            ctx.fillRect(16, 16, 8, 4);
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.ellipse(20, 17, 1.5, 1, 0, 0, Math.PI * 2); ctx.fill();
+            // Legs
+            ctx.fillStyle = '#E0E0E0';
+            ctx.fillRect(14, 34, 4, 6); ctx.fillRect(22, 34, 4, 6);
+        }
+        else if (char.type === 'Socks') {
+            // Socks — tiny puppy on all fours
+            ctx.fillStyle = '#E0E0E0';
+            ctx.beginPath(); ctx.ellipse(20, 22, 14, 8, 0, 0, Math.PI * 2); ctx.fill(); // long body
+            ctx.fillStyle = '#90CAF9';
+            // Blue spots
+            ctx.beginPath(); ctx.arc(14, 20, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(26, 22, 3, 0, Math.PI * 2); ctx.fill();
+            // Head (low, on all fours)
+            ctx.fillStyle = '#E0E0E0';
+            ctx.beginPath(); ctx.arc(6, 18, 7, 0, Math.PI * 2); ctx.fill();
+            // Ears
+            ctx.fillStyle = '#90CAF9';
+            ctx.beginPath(); ctx.ellipse(1, 12, 3, 5, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(11, 12, 3, 5, 0.3, 0, Math.PI * 2); ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(4, 17, 1.2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(9, 17, 1.2, 0, Math.PI * 2); ctx.fill();
+            // Nose
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.ellipse(6, 20, 1.5, 1, 0, 0, Math.PI * 2); ctx.fill();
+            // Four legs
+            ctx.fillStyle = '#E0E0E0';
+            ctx.fillRect(8, 28, 4, 6); ctx.fillRect(16, 28, 4, 6);
+            ctx.fillRect(24, 28, 4, 6); ctx.fillRect(30, 28, 4, 6);
+            // Tail (wagging fast)
+            ctx.strokeStyle = '#90CAF9'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(34, 20);
+            ctx.quadraticCurveTo(40, 12 + Math.sin(gameTick * 0.15) * 6, 42, 10); ctx.stroke();
+        }
+        else if (char.type === 'Mackenzie') {
+            // Mackenzie — Border Collie (black & white)
+            ctx.fillStyle = '#212121';
+            ctx.beginPath(); ctx.ellipse(20, 26, 12, 10, 0, 0, Math.PI * 2); ctx.fill(); // body
+            // White chest
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.ellipse(20, 30, 6, 6, 0, 0, Math.PI * 2); ctx.fill();
+            // Head
+            ctx.fillStyle = '#212121';
+            ctx.beginPath(); ctx.arc(20, 10, 10, 0, Math.PI * 2); ctx.fill();
+            // White blaze
+            ctx.fillStyle = '#FFF';
+            ctx.fillRect(18, 8, 4, 10);
+            // Ears (floppy)
+            ctx.fillStyle = '#212121';
+            ctx.beginPath(); ctx.ellipse(9, 6, 5, 7, -0.4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(31, 6, 5, 7, 0.4, 0, Math.PI * 2); ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.arc(16, 9, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 9, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#4E342E';
+            ctx.beginPath(); ctx.arc(16, 9, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 9, 1, 0, Math.PI * 2); ctx.fill();
+            // Nose
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.ellipse(20, 14, 2, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+            // Legs
+            ctx.fillStyle = '#212121';
+            ctx.fillRect(12, 34, 5, 8); ctx.fillRect(23, 34, 5, 8);
+            // White socks
+            ctx.fillStyle = '#FFF';
+            ctx.fillRect(12, 39, 5, 3); ctx.fillRect(23, 39, 5, 3);
+        }
+        else if (char.type === 'Rusty') {
+            // Rusty — red kelpie
+            ctx.fillStyle = '#BF360C';
+            ctx.beginPath(); ctx.ellipse(20, 26, 12, 10, 0, 0, Math.PI * 2); ctx.fill(); // body
+            ctx.beginPath(); ctx.arc(20, 10, 10, 0, Math.PI * 2); ctx.fill(); // head
+            // Pointy ears
+            ctx.fillStyle = '#8B2500';
+            ctx.beginPath(); ctx.moveTo(11, 2); ctx.lineTo(7, -8); ctx.lineTo(15, 0); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(29, 2); ctx.lineTo(33, -8); ctx.lineTo(25, 0); ctx.fill();
+            // Tan chest
+            ctx.fillStyle = '#FFAB91';
+            ctx.beginPath(); ctx.ellipse(20, 30, 6, 5, 0, 0, Math.PI * 2); ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.arc(16, 9, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 9, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#4E342E';
+            ctx.beginPath(); ctx.arc(16, 9, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 9, 1, 0, Math.PI * 2); ctx.fill();
+            // Nose
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.ellipse(20, 14, 2, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+            // Legs
+            ctx.fillStyle = '#BF360C';
+            ctx.fillRect(12, 34, 5, 8); ctx.fillRect(23, 34, 5, 8);
+        }
+        else if (char.type === 'Judo') {
+            // Judo — Chow Chow (fluffy, tan/cream)
+            ctx.fillStyle = '#FFCC80';
+            // Fluffy body
+            ctx.beginPath(); ctx.arc(20, 28, 14, 0, Math.PI * 2); ctx.fill();
+            // Fluffy head/mane
+            ctx.beginPath(); ctx.arc(20, 10, 13, 0, Math.PI * 2); ctx.fill();
+            // Inner face
+            ctx.fillStyle = '#FFB74D';
+            ctx.beginPath(); ctx.arc(20, 12, 8, 0, Math.PI * 2); ctx.fill();
+            // Ears (hidden in fluff)
+            ctx.fillStyle = '#FFB74D';
+            ctx.beginPath(); ctx.arc(8, 4, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(32, 4, 4, 0, Math.PI * 2); ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(16, 11, 1.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 11, 1.5, 0, Math.PI * 2); ctx.fill();
+            // Nose
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.ellipse(20, 15, 2, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+            // Stubby legs
+            ctx.fillStyle = '#FFCC80';
+            ctx.fillRect(12, 38, 6, 6); ctx.fillRect(22, 38, 6, 6);
+        }
+        else if (char.type === 'Chloe') {
+            // Chloe — Dalmatian (white with black spots)
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.ellipse(20, 26, 12, 10, 0, 0, Math.PI * 2); ctx.fill(); // body
+            ctx.beginPath(); ctx.arc(20, 10, 10, 0, Math.PI * 2); ctx.fill(); // head
+            // Floppy ears
+            ctx.fillStyle = '#333';
+            ctx.beginPath(); ctx.ellipse(9, 8, 4, 7, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(31, 8, 4, 7, 0.3, 0, Math.PI * 2); ctx.fill();
+            // Spots on body
+            ctx.fillStyle = '#333';
+            ctx.beginPath(); ctx.arc(15, 24, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(26, 28, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(20, 32, 2, 0, Math.PI * 2); ctx.fill();
+            // Spot on head
+            ctx.beginPath(); ctx.arc(24, 5, 3, 0, Math.PI * 2); ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.arc(16, 9, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 9, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#4E342E';
+            ctx.beginPath(); ctx.arc(16, 9, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 9, 1, 0, Math.PI * 2); ctx.fill();
+            // Nose
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.ellipse(20, 14, 2, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+            // Legs
+            ctx.fillStyle = '#FFF';
+            ctx.fillRect(12, 34, 5, 8); ctx.fillRect(23, 34, 5, 8);
         }
 
         ctx.restore();
@@ -2016,6 +2702,151 @@ function drawBgCreatures() {
             ctx.fillStyle = '#00838F';
             ctx.beginPath(); ctx.arc(c.x - 8, c.y, 2, 0, Math.PI * 2); ctx.fill();
         }
+        // === Bluey World Creatures ===
+        else if (c.type === 'cockatoo') {
+            // White cockatoo with yellow crest
+            let flapY = Math.sin(gameTick * 0.12 + c.wobbleOffset) * 4;
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.ellipse(c.x, c.y, 9, 7, 0, 0, Math.PI * 2); ctx.fill(); // body
+            ctx.beginPath(); ctx.arc(c.x - 5, c.y - 6, 6, 0, Math.PI * 2); ctx.fill(); // head
+            // Yellow crest
+            ctx.fillStyle = '#FFD600';
+            ctx.beginPath(); ctx.moveTo(c.x - 5, c.y - 12); ctx.lineTo(c.x - 8, c.y - 22 + flapY); ctx.lineTo(c.x - 2, c.y - 12); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(c.x - 3, c.y - 12); ctx.lineTo(c.x - 4, c.y - 20 + flapY); ctx.lineTo(c.x, c.y - 11); ctx.fill();
+            // Eye
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(c.x - 7, c.y - 7, 1.2, 0, Math.PI * 2); ctx.fill();
+            // Beak
+            ctx.fillStyle = '#37474F';
+            ctx.beginPath(); ctx.moveTo(c.x - 11, c.y - 6); ctx.lineTo(c.x - 15, c.y - 4); ctx.lineTo(c.x - 11, c.y - 3); ctx.fill();
+            // Wings
+            ctx.fillStyle = '#E0E0E0';
+            ctx.beginPath(); ctx.ellipse(c.x + 2, c.y - 2 + flapY, 10, 4, 0.2, 0, Math.PI * 2); ctx.fill();
+            // Tail
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.moveTo(c.x + 9, c.y); ctx.lineTo(c.x + 16, c.y - 2); ctx.lineTo(c.x + 15, c.y + 3); ctx.fill();
+        }
+        else if (c.type === 'lizard') {
+            // Australian blue-tongue lizard
+            ctx.fillStyle = '#8D6E63';
+            ctx.beginPath(); ctx.ellipse(c.x, c.y, 14, 4, 0, 0, Math.PI * 2); ctx.fill(); // body
+            // Head
+            ctx.fillStyle = '#795548';
+            ctx.beginPath(); ctx.ellipse(c.x - 14, c.y, 5, 4, 0, 0, Math.PI * 2); ctx.fill();
+            // Blue tongue (flicking)
+            let tongueOut = Math.sin(gameTick * 0.08 + c.wobbleOffset) > 0.5;
+            if (tongueOut) {
+                ctx.fillStyle = '#42A5F5';
+                ctx.fillRect(c.x - 20, c.y - 1, 5, 2);
+            }
+            // Stripes
+            ctx.fillStyle = '#6D4C41';
+            for (let s = -8; s < 10; s += 5) {
+                ctx.fillRect(c.x + s, c.y - 3, 2, 6);
+            }
+            // Eye
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(c.x - 16, c.y - 1, 1, 0, Math.PI * 2); ctx.fill();
+            // Legs
+            ctx.fillStyle = '#8D6E63';
+            ctx.fillRect(c.x - 8, c.y + 3, 3, 4); ctx.fillRect(c.x + 5, c.y + 3, 3, 4);
+            // Tail
+            ctx.strokeStyle = '#8D6E63'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(c.x + 14, c.y);
+            ctx.quadraticCurveTo(c.x + 22, c.y - 2, c.x + 26, c.y + 1); ctx.stroke();
+        }
+        else if (c.type === 'ibis') {
+            // Bin chicken (Australian white ibis)
+            let legStep = Math.sin(gameTick * 0.1 + c.wobbleOffset) * 2;
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.ellipse(c.x, c.y, 10, 7, 0, 0, Math.PI * 2); ctx.fill(); // body
+            // Black tail feathers
+            ctx.fillStyle = '#212121';
+            ctx.beginPath(); ctx.moveTo(c.x + 10, c.y); ctx.lineTo(c.x + 18, c.y - 4); ctx.lineTo(c.x + 18, c.y + 4); ctx.fill();
+            // Neck
+            ctx.strokeStyle = '#FFF'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(c.x - 8, c.y - 2); ctx.lineTo(c.x - 12, c.y - 14); ctx.stroke();
+            // Head
+            ctx.fillStyle = '#212121';
+            ctx.beginPath(); ctx.arc(c.x - 12, c.y - 16, 4, 0, Math.PI * 2); ctx.fill();
+            // Long curved beak
+            ctx.strokeStyle = '#212121'; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(c.x - 12, c.y - 15);
+            ctx.quadraticCurveTo(c.x - 20, c.y - 10, c.x - 22, c.y - 8); ctx.stroke();
+            // Eye
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.arc(c.x - 11, c.y - 17, 1, 0, Math.PI * 2); ctx.fill();
+            // Legs
+            ctx.strokeStyle = '#FF8F00'; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(c.x - 3, c.y + 7); ctx.lineTo(c.x - 5, c.y + 16 + legStep); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(c.x + 3, c.y + 7); ctx.lineTo(c.x + 1, c.y + 16 - legStep); ctx.stroke();
+        }
+        else if (c.type === 'frog') {
+            // Green tree frog
+            ctx.fillStyle = '#66BB6A';
+            ctx.beginPath(); ctx.ellipse(c.x, c.y, 8, 6, 0, 0, Math.PI * 2); ctx.fill(); // body
+            // Head
+            ctx.beginPath(); ctx.arc(c.x - 6, c.y - 2, 5, 0, Math.PI * 2); ctx.fill();
+            // Big eyes (on top of head)
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.arc(c.x - 9, c.y - 6, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x - 3, c.y - 6, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(c.x - 9, c.y - 6, 1.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x - 3, c.y - 6, 1.5, 0, Math.PI * 2); ctx.fill();
+            // Mouth line
+            ctx.strokeStyle = '#388E3C'; ctx.lineWidth = 0.8;
+            ctx.beginPath(); ctx.arc(c.x - 6, c.y, 3, 0, Math.PI); ctx.stroke();
+            // Front legs
+            ctx.fillStyle = '#66BB6A';
+            ctx.fillRect(c.x - 8, c.y + 4, 3, 5);
+            ctx.fillRect(c.x + 2, c.y + 4, 3, 5);
+            // Back legs (bent)
+            ctx.strokeStyle = '#66BB6A'; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.moveTo(c.x + 6, c.y + 2);
+            ctx.quadraticCurveTo(c.x + 14, c.y + 8, c.x + 10, c.y + 12); ctx.stroke();
+        }
+        else if (c.type === 'patty') {
+            // Bun bottom
+            ctx.fillStyle = '#F4A460';
+            ctx.fillRect(c.x, c.y + 12, 30, 6);
+            // Patty
+            ctx.fillStyle = '#8B4513';
+            ctx.beginPath(); ctx.ellipse(c.x + 15, c.y + 12, 16, 4, 0, 0, Math.PI * 2); ctx.fill();
+            // Lettuce
+            ctx.strokeStyle = '#32CD32'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(c.x, c.y + 10); ctx.quadraticCurveTo(c.x + 15, c.y + 14, c.x + 30, c.y + 10); ctx.stroke();
+            // Bun top
+            ctx.fillStyle = '#F4A460';
+            ctx.beginPath(); ctx.arc(c.x + 15, c.y + 8, 14, Math.PI, 0); ctx.fill();
+            // Seeds
+            ctx.fillStyle = '#FFE4B5';
+            ctx.beginPath(); ctx.arc(c.x + 10, c.y + 4, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x + 18, c.y + 2, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x + 22, c.y + 6, 1, 0, Math.PI * 2); ctx.fill();
+        } else if (c.type === 'fish') {
+            // Simple blue fish logic
+            ctx.fillStyle = '#2196F3';
+            ctx.beginPath(); ctx.ellipse(c.x + 15, c.y + 15, 12, 8, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(c.x + 25, c.y + 15); ctx.lineTo(c.x + 35, c.y + 10); ctx.lineTo(c.x + 35, c.y + 20); ctx.fill();
+        } else if (c.type === 'bone') {
+            // Dog bone
+            ctx.fillStyle = '#EEE';
+            ctx.fillRect(c.x + 5, c.y + 12, 20, 6);
+            ctx.beginPath(); ctx.arc(c.x + 5, c.y + 11, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x + 5, c.y + 19, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x + 25, c.y + 11, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x + 25, c.y + 19, 4, 0, Math.PI * 2); ctx.fill();
+        } else if (c.type === 'skull') {
+            // Skull
+            ctx.fillStyle = '#E0E0E0';
+            ctx.beginPath(); ctx.arc(c.x + 15, c.y + 12, 10, 0, Math.PI * 2); ctx.fill(); // Cranium
+            ctx.fillRect(c.x + 10, c.y + 18, 10, 8); // Jaw
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(c.x + 11, c.y + 12, 3, 0, Math.PI * 2); ctx.fill(); // Left Eye
+            ctx.beginPath(); ctx.arc(c.x + 19, c.y + 12, 3, 0, Math.PI * 2); ctx.fill(); // Right Eye
+            ctx.beginPath(); ctx.moveTo(c.x + 15, c.y + 16); ctx.lineTo(c.x + 13, c.y + 20); ctx.lineTo(c.x + 17, c.y + 20); ctx.fill(); // Nose
+        }
 
         ctx.restore();
     });
@@ -2081,6 +2912,78 @@ function drawEntities() {
         // Tail tip
         ctx.strokeStyle = '#FFE0B2'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.moveTo(px + 52, py + 8); ctx.lineTo(px + 52, py + 5); ctx.stroke();
+        if (player.invulnerable > 0 && Math.floor(gameTick / 4) % 2 === 0) ctx.globalAlpha = 0.5;
+
+    } else if (gameMode === 'bluey') {
+        // === BLUEY PLAYER ===
+        if (player.invulnerable > 0 && Math.floor(gameTick / 4) % 2 === 0) ctx.globalAlpha = 0.5;
+
+        let px = player.x, py = player.y + bounce;
+        // Body
+        ctx.fillStyle = '#42A5F5';
+        ctx.fillRect(px + 10, py + 20, 30, 30);
+        // Stomach
+        ctx.fillStyle = '#90CAF9';
+        ctx.fillRect(px + 15, py + 25, 20, 20);
+        // Head
+        ctx.fillStyle = '#42A5F5';
+        ctx.fillRect(px + 5, py, 40, 25);
+        // Mask
+        ctx.fillStyle = '#1565C0';
+        ctx.fillRect(px + 8, py + 5, 12, 12); ctx.fillRect(px + 30, py + 5, 12, 12);
+        // Ears
+        ctx.fillStyle = '#1565C0';
+        ctx.beginPath(); ctx.moveTo(px + 8, py); ctx.lineTo(px + 12, py - 10); ctx.lineTo(px + 18, py); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(px + 32, py); ctx.lineTo(px + 38, py - 10); ctx.lineTo(px + 42, py); ctx.fill();
+        // Eyes
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath(); ctx.arc(px + 15, py + 12, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + 35, py + 12, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(px + 15, py + 12, 1, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + 35, py + 12, 1, 0, Math.PI * 2); ctx.fill();
+        // Snout
+        ctx.fillStyle = '#FFF3E0';
+        ctx.fillRect(px + 18, py + 12, 14, 12);
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.ellipse(px + 25, py + 14, 3, 2, 0, 0, Math.PI * 2); ctx.fill(); // Nose
+        // Tail
+        ctx.fillStyle = '#1565C0';
+        let tailWag = Math.sin(gameTick * 0.5) * 5;
+        ctx.beginPath(); ctx.moveTo(px + 10, py + 40); ctx.lineTo(px - 5, py + 35 + tailWag); ctx.lineWidth = 4; ctx.strokeStyle = '#1565C0'; ctx.stroke();
+
+        ctx.globalAlpha = 1.0;
+
+    } else if (gameMode === 'scary') {
+        // === SCARY PLAYER ===
+        if (player.invulnerable > 0 && Math.floor(gameTick / 4) % 2 === 0) ctx.globalAlpha = 0.5;
+
+        let px = player.x, py = player.y + bounce;
+        // Hooded robe
+        ctx.fillStyle = '#212121';
+        ctx.beginPath();
+        ctx.moveTo(px + 25, py); // top of hood
+        ctx.lineTo(px + 50, py + 50); // bottom right
+        ctx.lineTo(px, py + 50); // bottom left
+        ctx.fill();
+
+        // Hood opening (void)
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.ellipse(px + 25, py + 20, 10, 12, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Glowing red eyes
+        ctx.fillStyle = '#FF0000';
+        ctx.shadowBlur = 5; ctx.shadowColor = '#FF0000';
+        ctx.beginPath(); ctx.arc(px + 22, py + 20, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + 28, py + 20, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Floating effect
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath(); ctx.ellipse(px + 25, py + 55, 15 - bounce, 4, 0, 0, Math.PI * 2); ctx.fill();
+
+        ctx.globalAlpha = 1.0;
+
     } else {
         // === SPONGEBOB PLAYER ===
         // Body
@@ -2133,6 +3036,64 @@ function drawEntities() {
     // Obstacles
     obstacles.forEach(o => {
         if (o.type === 'jellyfish') return;
+        if (o.isPit) return; // Pits are drawn in drawScrollingGround
+
+        if (o.type === 'spike') {
+            // New Spikes Visual: Three sharp metallic spikes
+            let sx = o.x;
+            for (let i = 0; i < 3; i++) {
+                // Base
+                ctx.fillStyle = '#CFD8DC';
+                ctx.beginPath();
+                ctx.moveTo(sx, o.y + o.height);
+                ctx.lineTo(sx + 5, o.y + 5); // Tip peak
+                ctx.lineTo(sx + 10, o.y + o.height);
+                ctx.fill();
+                // Shading (Right side)
+                ctx.fillStyle = '#90A4AE';
+                ctx.beginPath();
+                ctx.moveTo(sx + 5, o.y + 5);
+                ctx.lineTo(sx + 10, o.y + o.height);
+                ctx.lineTo(sx + 5, o.y + o.height);
+                ctx.fill();
+                // Red Warning Tip
+                ctx.fillStyle = '#D32F2F';
+                ctx.beginPath();
+                ctx.moveTo(sx + 5, o.y + 5);
+                ctx.lineTo(sx + 3, o.y + 10);
+                ctx.lineTo(sx + 7, o.y + 10);
+                ctx.fill();
+
+                sx += 10;
+            }
+            return;
+        }
+
+        if (o.type === 'flying') {
+            // Flying obstacle (Bird/Bat/Drone)
+            let hover = Math.sin(gameTick * 0.2) * 5;
+            if (gameMode === 'bluey') {
+                // Fruit Bat
+                ctx.fillStyle = '#424242';
+                ctx.beginPath(); ctx.arc(o.x + 20, o.y + 15 + hover, 10, 0, Math.PI * 2); ctx.fill(); // Body
+                ctx.beginPath(); ctx.moveTo(o.x + 20, o.y + 15 + hover); ctx.lineTo(o.x, o.y + hover); ctx.lineTo(o.x + 10, o.y + 20 + hover); ctx.fill(); // L Wing
+                ctx.beginPath(); ctx.moveTo(o.x + 20, o.y + 15 + hover); ctx.lineTo(o.x + 40, o.y + hover); ctx.lineTo(o.x + 30, o.y + 20 + hover); ctx.fill(); // R Wing
+                ctx.fillStyle = '#FFF'; // Eyes
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 13 + hover, 2, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 23, o.y + 13 + hover, 2, 0, Math.PI * 2); ctx.fill();
+            } else {
+                // Drone / Bird (Cat Mode)
+                ctx.fillStyle = '#607D8B';
+                ctx.fillRect(o.x, o.y + 10 + hover, 40, 10); // Body
+                ctx.fillStyle = '#CFD8DC'; // Propellers
+                let propOffset = (gameTick * 20) % 10;
+                ctx.fillRect(o.x - 5, o.y + 5 + hover, 15, 2);
+                ctx.fillRect(o.x + 30, o.y + 5 + hover, 15, 2);
+                ctx.fillStyle = 'red'; // Eye
+                ctx.beginPath(); ctx.arc(o.x + 20, o.y + 15 + hover, 3, 0, Math.PI * 2); ctx.fill();
+            }
+            return;
+        }
 
         let blockColor = '#5D4037';
         let topColor = '#388E3C';
@@ -2157,6 +3118,19 @@ function drawEntities() {
         if (currentScene === 'CAT_CAFE') { blockColor = '#6D4C41'; topColor = '#A1887F'; }
         if (currentScene === 'LASER_LAND') { blockColor = '#4A148C'; topColor = '#7B1FA2'; }
 
+        // Bluey World obstacle colors (Default to garden/earth tones)
+        if (gameMode === 'bluey') {
+            blockColor = '#795548'; topColor = '#A1887F'; // Default wood/brick
+            if (currentScene === 'BACKYARD') { blockColor = '#8D6E63'; topColor = '#A1887F'; }
+            if (currentScene === 'PLAYGROUND') { blockColor = '#FFB74D'; topColor = '#FFCC80'; }
+        }
+
+        // Scary World obstacle colors (Dark/Stone)
+        if (gameMode === 'scary') {
+            blockColor = '#424242'; topColor = '#616161';
+            if (currentScene === 'GRAVEYARD') { blockColor = '#3E2723'; topColor = '#5D4037'; }
+        }
+
         ctx.fillStyle = blockColor;
         ctx.fillRect(o.x, o.y, o.width, o.height);
         ctx.fillStyle = topColor;
@@ -2180,6 +3154,23 @@ function drawEntities() {
             // Shine
             ctx.fillStyle = 'rgba(255,255,255,0.5)';
             ctx.beginPath(); ctx.ellipse(c.x + 12, c.y + 11, 4, 2, -0.3, 0, Math.PI * 2); ctx.fill();
+        } else if (c.type === 'bone') {
+            // Dog bone
+            ctx.fillStyle = '#EEE';
+            ctx.fillRect(c.x + 5, c.y + 12, 20, 6);
+            ctx.beginPath(); ctx.arc(c.x + 5, c.y + 11, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x + 5, c.y + 19, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x + 25, c.y + 11, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x + 25, c.y + 19, 4, 0, Math.PI * 2); ctx.fill();
+        } else if (c.type === 'skull') {
+            // Skull
+            ctx.fillStyle = '#E0E0E0';
+            ctx.beginPath(); ctx.arc(c.x + 15, c.y + 12, 10, 0, Math.PI * 2); ctx.fill(); // Cranium
+            ctx.fillRect(c.x + 10, c.y + 18, 10, 8); // Jaw
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(c.x + 11, c.y + 12, 3, 0, Math.PI * 2); ctx.fill(); // Left Eye
+            ctx.beginPath(); ctx.arc(c.x + 19, c.y + 12, 3, 0, Math.PI * 2); ctx.fill(); // Right Eye
+            ctx.beginPath(); ctx.moveTo(c.x + 15, c.y + 16); ctx.lineTo(c.x + 13, c.y + 20); ctx.lineTo(c.x + 17, c.y + 20); ctx.fill(); // Nose
         } else {
             // Krabby Patty for SpongeBob mode
             ctx.fillStyle = '#F4A460'; ctx.fillRect(c.x, c.y + 20, c.width, 10);

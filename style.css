@@ -16,9 +16,9 @@ body {
 
 #game-container {
     position: relative;
-    width: min(800px, 100vw);
+    /* In landscape: height is the constraint. In portrait: width is the constraint. */
+    width: min(800px, 100vw, calc(100dvh * 16 / 9));
     aspect-ratio: 16 / 9;
-    max-height: 100vh;
     max-height: 100dvh;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
@@ -192,5 +192,191 @@ button:active {
     .select-card {
         min-width: 140px;
         padding: 12px 18px;
+    }
+}
+
+.bluey-card {
+    background: linear-gradient(135deg, #1565C0 0%, #42A5F5 50%, #E65100 100%);
+    border-color: #FFB74D;
+}
+
+.scary-card {
+    background: linear-gradient(135deg, #B71C1C 0%, #4A0000 50%, #1A1A1A 100%);
+    border-color: #FF5252;
+}
+
+/* ═══ Settings ═══ */
+#settings-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    color: white;
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    box-shadow: none;
+    line-height: 1;
+}
+
+#settings-btn:hover {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+#menu-btn {
+    position: absolute;
+    top: 8px;
+    right: 56px;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    color: white;
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    box-shadow: none;
+    line-height: 1;
+}
+
+#menu-btn:hover {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+#settings-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto;
+    z-index: 20;
+    gap: 16px;
+    color: white;
+}
+
+#settings-overlay h2 {
+    font-size: clamp(24px, 5vw, 40px);
+    margin: 0;
+    color: #F7E414;
+    text-shadow: 2px 2px 0 #000;
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: clamp(16px, 3vw, 24px);
+}
+
+.settings-row input[type="range"] {
+    width: 160px;
+    accent-color: #F7E414;
+    cursor: pointer;
+}
+
+#speed-value {
+    min-width: 50px;
+    text-align: center;
+    font-size: clamp(16px, 3vw, 24px);
+    color: #4FC3F7;
+}
+
+#settings-close-btn {
+    margin-top: 12px;
+}
+
+/* Landscape Mobile Fixes */
+@media (max-height: 500px) and (orientation: landscape) {
+
+    body {
+        background-color: #000;
+    }
+
+    #game-container {
+        width: 100vw;
+        max-height: 100dvh;
+        box-shadow: none;
+    }
+
+    #select-screen,
+    #start-screen,
+    #game-over-screen {
+        padding: 10px;
+        /* Minimal padding */
+        border-width: 2px;
+    }
+
+    #select-screen h1 {
+        font-size: 28px;
+        margin-bottom: 4px;
+    }
+
+    #select-screen p {
+        font-size: 14px;
+        margin-bottom: 8px;
+    }
+
+    #select-cards {
+        gap: 8px;
+    }
+
+    .select-card {
+        padding: 6px 10px;
+        min-width: 110px;
+        border-width: 2px;
+        box-shadow: none;
+        /* Reduce visual noise */
+    }
+
+    .card-icon {
+        font-size: 28px;
+    }
+
+    .card-title {
+        font-size: 12px;
+        margin-top: 2px;
+        text-shadow: 1px 1px 0 #000;
+    }
+
+    .card-desc {
+        display: none;
+        /* Hide descriptions to fit screen */
+    }
+
+    #start-screen h1,
+    #game-over-screen h1 {
+        font-size: 36px;
+        margin-bottom: 10px;
+    }
+
+    button {
+        font-size: 18px;
+        padding: 6px 16px;
+        border-width: 2px;
+    }
+
+    /* Start Button Scaling */
+    #start-btn,
+    #restart-btn {
+        margin-top: 5px;
     }
 }
