@@ -860,6 +860,56 @@ function updateEnemies() {
             o.bouncePhase = (o.bouncePhase || 0) + 0.05;
             o.y = o.baseY + Math.sin(o.bouncePhase) * 40;
         }
+        else if (o.type === 'dasher') {
+            if (o.dashCooldown > 0) {
+                o.dashCooldown--;
+            }
+            if (!o.dashing && o.dashCooldown <= 0) {
+                // Start dash when player is within 250px horizontal range
+                let distX = Math.abs((o.x + o.width / 2) - (player.x + player.width / 2));
+                if (distX < 250) {
+                    o.dashing = true;
+                    o.dashSpeed = -5.5; // Rush toward player (left)
+                }
+            }
+            if (o.dashing) {
+                o.x += o.dashSpeed;
+                // Stop dashing after moving 150px
+                if (o.dashSpeed < 0 && o.x < player.x - 100) {
+                    o.dashing = false;
+                    o.dashCooldown = 120;
+                    o.dashSpeed = 0;
+                }
+            }
+        }
+        else if (o.type === 'zigzagger') {
+            o.zigPhase = (o.zigPhase || 0) + o.zigSpeed;
+            o.y = o.baseY + Math.sin(o.zigPhase) * o.zigAmplitude;
+            // Also moves forward slightly toward player
+            o.x -= 0.5;
+        }
+        else if (o.type === 'teleporter') {
+            o.teleportTimer = (o.teleportTimer || 0) + 1;
+            if (o.teleporting) {
+                // Fade out then reappear
+                o.alpha -= 0.05;
+                if (o.alpha <= 0) {
+                    // Teleport to a new position near the player
+                    o.x = player.x + 100 + Math.random() * 150;
+                    o.y = 300 + Math.random() * 60;
+                    o.teleporting = false;
+                    o.alpha = 0;
+                    o.teleportTimer = 0;
+                }
+            } else if (o.alpha < 1) {
+                // Fade back in
+                o.alpha += 0.05;
+                if (o.alpha > 1) o.alpha = 1;
+            } else if (o.teleportTimer >= o.teleportCooldown) {
+                // Start teleport
+                o.teleporting = true;
+            }
+        }
     });
 
     // Update enemy projectiles
@@ -1139,7 +1189,7 @@ function spawnEntities() {
         collectibles.push({ x: 800, y: 250 - Math.random() * 50, width: 30, height: 30, type: collectType });
     }
 
-    // 5. Riddle Collectibles (less frequent, only if no power-up active)
+    // 5. Riddle / Prize Collectibles (less frequent, only if no power-up active)
     if (!activePowerUp && !riddleActive && Math.random() < 0.003) {
         collectibles.push({
             x: 800, y: 220 - Math.random() * 60, width: 30, height: 30,
@@ -1162,21 +1212,31 @@ function spawnObstacle() {
         type = 'block';
     }
 
-    if ((gameMode === 'scary' || gameMode === 'tmnt') && type === 'block' && Math.random() < 0.3) type = 'spike';
+    // Spikes — higher chance for scary/tmnt, lower for others
+    if (type === 'block') {
+        let spikeChance = (gameMode === 'scary' || gameMode === 'tmnt') ? 0.3 : 0.15;
+        if (Math.random() < spikeChance) type = 'spike';
+    }
 
-    // Flying obstacles for Cat, Bluey, and TMNT (Hard Mode elements)
-    if ((gameMode === 'cat' || gameMode === 'bluey' || gameMode === 'tmnt') && type === 'block' && Math.random() < 0.3) {
+    // Flying obstacles — all modes get them now
+    if (type === 'block' && Math.random() < 0.25) {
         type = 'flying';
     }
 
     // Tier-gated new enemy types (replace some blocks)
     if (type === 'block' || type === 'tall_block') {
         let enemyRoll = Math.random();
-        if (difficultyTier >= 3 && enemyRoll < 0.12) {
+        if (difficultyTier >= 3 && enemyRoll < 0.08) {
+            type = 'teleporter';
+        } else if (difficultyTier >= 3 && enemyRoll < 0.16) {
             type = 'bouncer';
         } else if (difficultyTier >= 2 && enemyRoll < 0.22) {
+            type = 'dasher';
+        } else if (difficultyTier >= 2 && enemyRoll < 0.32) {
             type = Math.random() < 0.5 ? 'shooter' : 'falling';
-        } else if (difficultyTier >= 1 && enemyRoll < 0.3) {
+        } else if (difficultyTier >= 1 && enemyRoll < 0.38) {
+            type = 'zigzagger';
+        } else if (difficultyTier >= 1 && enemyRoll < 0.45) {
             type = 'ground_walker';
         }
     }
@@ -1234,6 +1294,29 @@ function spawnObstacle() {
         newObstacle.y = 280;
         newObstacle.bouncePhase = Math.random() * Math.PI * 2;
     }
+    else if (type === 'dasher') {
+        newObstacle.width = 35; newObstacle.height = 35;
+        newObstacle.y = GROUND_Y - 35;
+        newObstacle.dashing = false;
+        newObstacle.dashSpeed = 0;
+        newObstacle.dashCooldown = 0;
+    }
+    else if (type === 'zigzagger') {
+        newObstacle.width = 30; newObstacle.height = 30;
+        newObstacle.y = 200 + Math.random() * 120;
+        newObstacle.baseY = newObstacle.y;
+        newObstacle.zigPhase = Math.random() * Math.PI * 2;
+        newObstacle.zigAmplitude = 50 + Math.random() * 30;
+        newObstacle.zigSpeed = 0.06 + Math.random() * 0.03;
+    }
+    else if (type === 'teleporter') {
+        newObstacle.width = 30; newObstacle.height = 30;
+        newObstacle.y = GROUND_Y - 30;
+        newObstacle.teleportTimer = 0;
+        newObstacle.teleportCooldown = 90 + Math.floor(Math.random() * 60);
+        newObstacle.alpha = 1;
+        newObstacle.teleporting = false;
+    }
 
     // Prevent overlap
     let spawnGap = type === 'pit' ? 200 : 150;
@@ -1248,6 +1331,8 @@ function checkCollisions() {
 
     obstacles.forEach(o => {
         if (!o.isObstacle) return;
+        // Teleporter can't hurt you while invisible
+        if (o.type === 'teleporter' && (o.alpha || 1) < 0.3) return;
         if (player.x + padding < o.x + o.width - padding &&
             player.x + player.width - padding > o.x + padding &&
             player.y + padding < o.y + o.height - padding &&
@@ -1339,7 +1424,19 @@ function checkCollisions() {
 
             if (c.isRiddle) {
                 collectibles.splice(i, 1);
-                showRiddle();
+                if (gameLevel === 'easy') {
+                    // Easy: grant random power-up directly, no question
+                    let powerUps = ['triple_jump', 'shooting', 'invulnerable'];
+                    activePowerUp = powerUps[Math.floor(Math.random() * powerUps.length)];
+                    powerUpTimer = powerUpMaxTimer;
+                    playSound('powerup');
+                    let label = activePowerUp.replace('_', ' ').toUpperCase();
+                    spawnParticles(c.x + c.width / 2, c.y + c.height / 2, 'correct_answer');
+                    spawnFloatingText(player.x + player.width / 2, player.y - 20, 'PRIZE: ' + label + '!', '#76FF03', 28);
+                    triggerScreenFlash('#76FF03', 20);
+                } else {
+                    showRiddle();
+                }
                 return;
             }
 
@@ -1348,7 +1445,8 @@ function checkCollisions() {
             // Small collect sparkle
             spawnParticles(c.x + c.width / 2, c.y + c.height / 2, 'collect');
 
-            if (score % 10 === 0) {
+            let lifeThreshold = gameLevel === 'hard' ? 500 : gameLevel === 'medium' ? 50 : 10;
+            if (score % lifeThreshold === 0) {
                 if (lives < 6) {
                     lives++;
                     // Big life gain animation
@@ -4258,8 +4356,24 @@ function drawEntities() {
                 ctx.fillStyle = '#FFF'; // Eyes
                 ctx.beginPath(); ctx.arc(o.x + 17, o.y + 13 + hover, 2, 0, Math.PI * 2); ctx.fill();
                 ctx.beginPath(); ctx.arc(o.x + 23, o.y + 13 + hover, 2, 0, Math.PI * 2); ctx.fill();
-            } else {
-                // Drone / Bird (Cat Mode)
+            } else if (gameMode === 'scary') {
+                // Flying ghost skull
+                ctx.fillStyle = 'rgba(200, 200, 200, 0.7)';
+                ctx.beginPath(); ctx.arc(o.x + 20, o.y + 12 + hover, 10, 0, Math.PI * 2); ctx.fill();
+                // Hollow eyes
+                ctx.fillStyle = '#000';
+                ctx.beginPath(); ctx.arc(o.x + 16, o.y + 10 + hover, 3, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 24, o.y + 10 + hover, 3, 0, Math.PI * 2); ctx.fill();
+                // Mouth
+                ctx.fillStyle = '#000';
+                ctx.beginPath(); ctx.arc(o.x + 20, o.y + 17 + hover, 2, 0, Math.PI); ctx.fill();
+                // Ghostly trail
+                ctx.fillStyle = 'rgba(200, 200, 200, 0.3)';
+                for (let g = 0; g < 3; g++) {
+                    ctx.beginPath(); ctx.arc(o.x + 20 + g * 2, o.y + 22 + hover + g * 4, 4 - g, 0, Math.PI * 2); ctx.fill();
+                }
+            } else if (gameMode === 'cat') {
+                // Bird
                 ctx.fillStyle = '#607D8B';
                 ctx.fillRect(o.x, o.y + 10 + hover, 40, 10); // Body
                 ctx.fillStyle = '#CFD8DC'; // Propellers
@@ -4268,6 +4382,23 @@ function drawEntities() {
                 ctx.fillRect(o.x + 30, o.y + 5 + hover, 15, 2);
                 ctx.fillStyle = 'red'; // Eye
                 ctx.beginPath(); ctx.arc(o.x + 20, o.y + 15 + hover, 3, 0, Math.PI * 2); ctx.fill();
+            } else {
+                // Jellyfish drone (spongebob)
+                ctx.fillStyle = '#FF80AB';
+                ctx.beginPath(); ctx.arc(o.x + 20, o.y + 10 + hover, 10, Math.PI, 0); ctx.fill();
+                ctx.fillStyle = '#FF4081';
+                ctx.beginPath(); ctx.arc(o.x + 20, o.y + 10 + hover, 5, Math.PI, 0); ctx.fill();
+                // Tentacles
+                ctx.strokeStyle = 'rgba(255, 128, 171, 0.6)'; ctx.lineWidth = 1.5;
+                for (let t = 0; t < 3; t++) {
+                    ctx.beginPath(); ctx.moveTo(o.x + 13 + t * 7, o.y + 10 + hover);
+                    ctx.lineTo(o.x + 13 + t * 7 + Math.sin(gameTick * 0.1 + t) * 3, o.y + 25 + hover);
+                    ctx.stroke();
+                }
+                // Eyes
+                ctx.fillStyle = '#FFF';
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 8 + hover, 2, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 23, o.y + 8 + hover, 2, 0, Math.PI * 2); ctx.fill();
             }
             return;
         }
@@ -4522,6 +4653,284 @@ function drawEntities() {
                     ctx.stroke();
                 }
             }
+            return;
+        }
+
+        if (o.type === 'dasher') {
+            let dashGlow = o.dashing ? 0.5 + Math.sin(gameTick * 0.3) * 0.3 : 0;
+            // Speed lines when dashing
+            if (o.dashing) {
+                ctx.strokeStyle = 'rgba(255, 100, 100, 0.4)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < 4; i++) {
+                    let ly = o.y + 5 + i * 8;
+                    ctx.beginPath(); ctx.moveTo(o.x + 35, ly); ctx.lineTo(o.x + 50 + Math.random() * 15, ly); ctx.stroke();
+                }
+            }
+            if (gameMode === 'cat') {
+                // Angry dog — charges at the cat
+                ctx.fillStyle = '#5D4037';
+                ctx.beginPath(); ctx.ellipse(o.x + 17, o.y + 20, 14, 10, 0, 0, Math.PI * 2); ctx.fill(); // body
+                ctx.beginPath(); ctx.arc(o.x + 28, o.y + 16, 7, 0, Math.PI * 2); ctx.fill(); // head
+                ctx.fillStyle = '#D32F2F'; // angry eyes
+                ctx.beginPath(); ctx.arc(o.x + 27, o.y + 14, 2, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 31, o.y + 14, 2, 0, Math.PI * 2); ctx.fill();
+                // Open mouth
+                ctx.fillStyle = '#F44336';
+                ctx.beginPath(); ctx.arc(o.x + 33, o.y + 18, 3, 0, Math.PI); ctx.fill();
+                // Legs
+                ctx.fillStyle = '#5D4037';
+                ctx.fillRect(o.x + 7, o.y + 28, 4, 7);
+                ctx.fillRect(o.x + 20, o.y + 28, 4, 7);
+            } else if (gameMode === 'bluey') {
+                // Magpie (Australian swooping bird)
+                ctx.fillStyle = '#212121';
+                ctx.beginPath(); ctx.ellipse(o.x + 17, o.y + 17, 13, 9, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#FFF'; // white stripe
+                ctx.fillRect(o.x + 10, o.y + 14, 14, 3);
+                // Beak
+                ctx.fillStyle = '#FF6F00';
+                ctx.beginPath(); ctx.moveTo(o.x + 30, o.y + 15); ctx.lineTo(o.x + 36, o.y + 17); ctx.lineTo(o.x + 30, o.y + 19); ctx.fill();
+                // Eye
+                ctx.fillStyle = '#F44336';
+                ctx.beginPath(); ctx.arc(o.x + 27, o.y + 14, 2, 0, Math.PI * 2); ctx.fill();
+                // Wings flap
+                let wingFlap = Math.sin(gameTick * 0.3) * 5;
+                ctx.fillStyle = '#212121';
+                ctx.beginPath(); ctx.moveTo(o.x + 10, o.y + 14); ctx.lineTo(o.x, o.y + 5 + wingFlap); ctx.lineTo(o.x + 14, o.y + 10); ctx.fill();
+            } else if (gameMode === 'tmnt') {
+                // Bebop (mutant warthog, charges)
+                ctx.fillStyle = '#8D6E63';
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 12, 10, 0, Math.PI * 2); ctx.fill(); // head
+                ctx.fillStyle = '#CE93D8'; // mohawk
+                ctx.fillRect(o.x + 12, o.y, 10, 6);
+                // Snout
+                ctx.fillStyle = '#FFAB91';
+                ctx.beginPath(); ctx.ellipse(o.x + 25, o.y + 14, 5, 4, 0, 0, Math.PI * 2); ctx.fill();
+                // Tusks
+                ctx.fillStyle = '#FFF';
+                ctx.fillRect(o.x + 27, o.y + 10, 2, 6);
+                ctx.fillRect(o.x + 23, o.y + 10, 2, 6);
+                // Angry eyes
+                ctx.fillStyle = o.dashing ? '#F44336' : '#FFF';
+                ctx.beginPath(); ctx.arc(o.x + 13, o.y + 10, 2.5, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 20, o.y + 10, 2.5, 0, Math.PI * 2); ctx.fill();
+                // Body
+                ctx.fillStyle = '#795548';
+                ctx.fillRect(o.x + 7, o.y + 20, 20, 12);
+            } else if (gameMode === 'scary') {
+                // Werewolf — lunges at player
+                ctx.fillStyle = '#4E342E';
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 10, 9, 0, Math.PI * 2); ctx.fill(); // head
+                // Ears
+                ctx.beginPath(); ctx.moveTo(o.x + 8, o.y + 4); ctx.lineTo(o.x + 5, o.y - 4); ctx.lineTo(o.x + 12, o.y + 2); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(o.x + 22, o.y + 2); ctx.lineTo(o.x + 29, o.y - 4); ctx.lineTo(o.x + 26, o.y + 4); ctx.fill();
+                // Glowing eyes
+                ctx.fillStyle = o.dashing ? '#FF1744' : '#FFEB3B';
+                ctx.beginPath(); ctx.arc(o.x + 13, o.y + 9, 2.5, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 21, o.y + 9, 2.5, 0, Math.PI * 2); ctx.fill();
+                // Fangs
+                ctx.fillStyle = '#FFF';
+                ctx.beginPath(); ctx.moveTo(o.x + 14, o.y + 16); ctx.lineTo(o.x + 16, o.y + 21); ctx.lineTo(o.x + 18, o.y + 16); ctx.fill();
+                // Body
+                ctx.fillStyle = '#3E2723';
+                ctx.fillRect(o.x + 9, o.y + 18, 16, 14);
+            } else {
+                // Electric Eel (spongebob) — darts forward
+                ctx.fillStyle = '#FDD835';
+                ctx.beginPath(); ctx.ellipse(o.x + 17, o.y + 17, 16, 8, 0, 0, Math.PI * 2); ctx.fill();
+                // Lightning stripes
+                ctx.strokeStyle = '#F57F17'; ctx.lineWidth = 2;
+                for (let z = 0; z < 3; z++) {
+                    ctx.beginPath();
+                    ctx.moveTo(o.x + 5 + z * 10, o.y + 12);
+                    ctx.lineTo(o.x + 8 + z * 10, o.y + 17);
+                    ctx.lineTo(o.x + 5 + z * 10, o.y + 22);
+                    ctx.stroke();
+                }
+                // Eye
+                ctx.fillStyle = '#000';
+                ctx.beginPath(); ctx.arc(o.x + 28, o.y + 15, 2.5, 0, Math.PI * 2); ctx.fill();
+                // Electric sparks when dashing
+                if (o.dashing) {
+                    ctx.strokeStyle = 'rgba(255, 235, 59, 0.7)'; ctx.lineWidth = 1;
+                    for (let s = 0; s < 3; s++) {
+                        let sx = o.x + Math.random() * 35, sy = o.y + 5 + Math.random() * 20;
+                        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + 5, sy - 5); ctx.lineTo(sx + 3, sy + 3); ctx.stroke();
+                    }
+                }
+            }
+            return;
+        }
+
+        if (o.type === 'zigzagger') {
+            let trail = Math.sin(gameTick * 0.2) * 3;
+            if (gameMode === 'cat') {
+                // Laser pointer dot — erratic movement
+                ctx.fillStyle = '#F44336';
+                let glow = 6 + Math.sin(gameTick * 0.3) * 3;
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, glow, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#FF8A80';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#FFF';
+                ctx.beginPath(); ctx.arc(o.x + 13, o.y + 13, 1.5, 0, Math.PI * 2); ctx.fill();
+            } else if (gameMode === 'bluey') {
+                // Boomerang
+                ctx.save();
+                ctx.translate(o.x + 15, o.y + 15);
+                ctx.rotate(gameTick * 0.12);
+                ctx.fillStyle = '#8D6E63';
+                ctx.beginPath();
+                ctx.moveTo(0, -12); ctx.quadraticCurveTo(12, -6, 12, 0);
+                ctx.quadraticCurveTo(12, 3, 0, 0);
+                ctx.quadraticCurveTo(-3, -3, -12, 0);
+                ctx.quadraticCurveTo(-12, -6, 0, -12);
+                ctx.fill();
+                // Wood grain
+                ctx.strokeStyle = '#6D4C41'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.arc(0, -4, 5, 0, Math.PI); ctx.stroke();
+                ctx.restore();
+            } else if (gameMode === 'tmnt') {
+                // Buzzkill drone (Kraang tech) — zigzags
+                ctx.fillStyle = '#E91E63';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 10, 0, Math.PI * 2); ctx.fill(); // body
+                ctx.fillStyle = '#C2185B';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 5, 0, Math.PI * 2); ctx.fill(); // core
+                // Rotating spikes
+                ctx.strokeStyle = '#F48FB1'; ctx.lineWidth = 2;
+                for (let s = 0; s < 6; s++) {
+                    let a = s * Math.PI / 3 + gameTick * 0.08;
+                    ctx.beginPath();
+                    ctx.moveTo(o.x + 15 + Math.cos(a) * 8, o.y + 15 + Math.sin(a) * 8);
+                    ctx.lineTo(o.x + 15 + Math.cos(a) * 14, o.y + 15 + Math.sin(a) * 14);
+                    ctx.stroke();
+                }
+            } else if (gameMode === 'scary') {
+                // Will-o-wisp — ghostly flame that zigzags
+                let flicker = Math.sin(gameTick * 0.2) * 2;
+                ctx.fillStyle = 'rgba(100, 255, 218, 0.3)';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 14 + flicker, 0, Math.PI * 2); ctx.fill(); // glow
+                ctx.fillStyle = '#64FFDA';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 8, 0, Math.PI * 2); ctx.fill(); // core
+                ctx.fillStyle = '#FFF';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 4, 0, Math.PI * 2); ctx.fill(); // bright center
+                // Flame wisps
+                ctx.strokeStyle = 'rgba(100, 255, 218, 0.5)'; ctx.lineWidth = 1.5;
+                for (let w = 0; w < 3; w++) {
+                    let wa = w * Math.PI * 2 / 3 + gameTick * 0.05;
+                    ctx.beginPath();
+                    ctx.moveTo(o.x + 15 + Math.cos(wa) * 6, o.y + 15 + Math.sin(wa) * 6);
+                    ctx.lineTo(o.x + 15 + Math.cos(wa) * 12, o.y + 10 + Math.sin(wa + 0.5) * 8);
+                    ctx.stroke();
+                }
+            } else {
+                // Angry Clam (spongebob) — snaps open/shut while zigzagging
+                let snap = Math.sin(gameTick * 0.15) > 0;
+                ctx.fillStyle = '#8D6E63';
+                // Bottom shell
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 20, 12, 0, Math.PI); ctx.fill();
+                // Top shell (opens/closes)
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 12, Math.PI, Math.PI * 2 - (snap ? 0.3 : 0)); ctx.fill();
+                // Pearl inside
+                if (snap) {
+                    ctx.fillStyle = '#E8EAF6';
+                    ctx.beginPath(); ctx.arc(o.x + 15, o.y + 18, 4, 0, Math.PI * 2); ctx.fill();
+                }
+                // Angry eyes on shell
+                ctx.fillStyle = '#F44336';
+                ctx.beginPath(); ctx.arc(o.x + 11, o.y + 12, 2, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 19, o.y + 12, 2, 0, Math.PI * 2); ctx.fill();
+            }
+            return;
+        }
+
+        if (o.type === 'teleporter') {
+            ctx.save();
+            ctx.globalAlpha = o.alpha || 1;
+            if (gameMode === 'cat') {
+                // Phantom cat — disappears and reappears
+                ctx.fillStyle = '#7E57C2';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 12, 8, 0, Math.PI * 2); ctx.fill(); // head
+                // Ears
+                ctx.beginPath(); ctx.moveTo(o.x + 7, o.y + 6); ctx.lineTo(o.x + 5, o.y - 2); ctx.lineTo(o.x + 11, o.y + 4); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(o.x + 19, o.y + 4); ctx.lineTo(o.x + 25, o.y - 2); ctx.lineTo(o.x + 23, o.y + 6); ctx.fill();
+                // Glowing eyes
+                ctx.fillStyle = '#E040FB';
+                ctx.beginPath(); ctx.arc(o.x + 12, o.y + 11, 2, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 18, o.y + 11, 2, 0, Math.PI * 2); ctx.fill();
+                // Body fading
+                ctx.fillStyle = 'rgba(126, 87, 194, 0.6)';
+                ctx.beginPath(); ctx.ellipse(o.x + 15, o.y + 22, 8, 6, 0, 0, Math.PI * 2); ctx.fill();
+            } else if (gameMode === 'bluey') {
+                // Fairy (Bluey episode reference) — teleporting sparkle
+                ctx.fillStyle = '#FFD54F';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 12, 6, 0, Math.PI * 2); ctx.fill(); // head
+                ctx.fillStyle = '#FFF';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 22, 7, 0, Math.PI * 2); ctx.fill(); // dress
+                // Wings
+                ctx.fillStyle = 'rgba(179, 229, 252, 0.6)';
+                ctx.beginPath(); ctx.ellipse(o.x + 5, o.y + 14, 6, 10, -0.3, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(o.x + 25, o.y + 14, 6, 10, 0.3, 0, Math.PI * 2); ctx.fill();
+                // Sparkles around
+                ctx.fillStyle = '#FFEB3B';
+                for (let s = 0; s < 4; s++) {
+                    let sa = s * Math.PI / 2 + gameTick * 0.06;
+                    ctx.beginPath(); ctx.arc(o.x + 15 + Math.cos(sa) * 14, o.y + 15 + Math.sin(sa) * 14, 1.5, 0, Math.PI * 2); ctx.fill();
+                }
+            } else if (gameMode === 'tmnt') {
+                // Dimension X portal creature
+                ctx.fillStyle = '#7C4DFF';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 12, 0, Math.PI * 2); ctx.fill();
+                // Swirl pattern
+                ctx.strokeStyle = '#B388FF'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 8, gameTick * 0.1, gameTick * 0.1 + Math.PI); ctx.stroke();
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 4, gameTick * 0.1 + Math.PI, gameTick * 0.1 + Math.PI * 2); ctx.stroke();
+                // Eye in center
+                ctx.fillStyle = '#FFF';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 3, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#E040FB';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 1.5, 0, Math.PI * 2); ctx.fill();
+            } else if (gameMode === 'scary') {
+                // Shadow wraith — flickers in and out
+                ctx.fillStyle = 'rgba(33, 33, 33, 0.8)';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 10, 8, 0, Math.PI * 2); ctx.fill(); // head
+                // Body (flowing robe)
+                ctx.beginPath(); ctx.moveTo(o.x + 5, o.y + 14); ctx.lineTo(o.x + 15, o.y + 32);
+                ctx.lineTo(o.x + 25, o.y + 14); ctx.fill();
+                // Glowing white eyes
+                ctx.fillStyle = '#FFF';
+                ctx.beginPath(); ctx.arc(o.x + 12, o.y + 9, 2, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 18, o.y + 9, 2, 0, Math.PI * 2); ctx.fill();
+                // Dark mist particles
+                ctx.fillStyle = 'rgba(33, 33, 33, 0.3)';
+                for (let m = 0; m < 3; m++) {
+                    let mx = o.x + 5 + Math.random() * 20, my = o.y + 20 + Math.random() * 10;
+                    ctx.beginPath(); ctx.arc(mx, my, 3, 0, Math.PI * 2); ctx.fill();
+                }
+            } else {
+                // Magic Conch Shell (spongebob) — teleports
+                ctx.fillStyle = '#E91E63';
+                // Spiral shell shape
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 12, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#F48FB1';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 8, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#FCE4EC';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 4, 0, Math.PI * 2); ctx.fill();
+                // Spiral line
+                ctx.strokeStyle = '#C2185B'; ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                for (let a = 0; a < Math.PI * 4; a += 0.3) {
+                    let r = 2 + a * 1.3;
+                    ctx.lineTo(o.x + 15 + Math.cos(a + gameTick * 0.05) * r, o.y + 15 + Math.sin(a + gameTick * 0.05) * r);
+                }
+                ctx.stroke();
+                // Glow effect when about to teleport
+                if (o.teleportTimer > o.teleportCooldown * 0.7) {
+                    ctx.strokeStyle = 'rgba(233, 30, 99, 0.5)'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.arc(o.x + 15, o.y + 15, 15 + Math.sin(gameTick * 0.2) * 3, 0, Math.PI * 2); ctx.stroke();
+                }
+            }
+            ctx.restore();
             return;
         }
 
@@ -5315,10 +5724,10 @@ function showQuiz(quizType, damageSource) {
         btn.disabled = false;
     });
 
-    // Quiz timer for hard level
+    // Quiz timer for medium and hard levels
     if (quizTimerInterval) clearInterval(quizTimerInterval);
-    if (gameLevel === 'hard') {
-        quizTimeMax = quizType === 'math' ? 15 : 20; // seconds
+    if (gameLevel === 'hard' || gameLevel === 'medium') {
+        quizTimeMax = gameLevel === 'medium' ? 10 : 5; // medium: 10s, hard: 5s
         quizTimeLeft = quizTimeMax * 10; // tenths of a second for smooth bar
         quizTimerBar.classList.remove('hidden');
         quizTimerFill.style.width = '100%';
@@ -5571,8 +5980,15 @@ function handleRiddleAnswer(selectedIndex) {
         spawnFloatingText(canvas.width / 2, canvas.height / 2 - 40, 'POWER UP!', '#76FF03', 32);
         triggerScreenFlash('#76FF03', 20);
     } else {
-        quizResult.textContent = 'Wrong! Answer: ' + correct + '. No penalty.';
-        quizResult.style.color = '#FF9800';
+        if (gameLevel === 'hard') {
+            lives--;
+            playHurtSound();
+            quizResult.textContent = 'Wrong! -1 Life. Answer: ' + correct;
+            quizResult.style.color = '#F44336';
+        } else {
+            quizResult.textContent = 'Wrong! Answer: ' + correct + '. No penalty.';
+            quizResult.style.color = '#FF9800';
+        }
     }
 
     setTimeout(() => {
@@ -5582,6 +5998,9 @@ function handleRiddleAnswer(selectedIndex) {
         currentRiddle = null;
         // Restore 4th button
         quizAnswerBtns.forEach(btn => btn.style.display = '');
+        if (gameLevel === 'hard' && lives <= 0) {
+            showGameOver();
+        }
     }, 2000);
 }
 
