@@ -29,6 +29,9 @@
             <!-- Quiz Overlay -->
             <div id="quiz-overlay" class="hidden">
                 <div id="quiz-container">
+                    <div id="quiz-timer-bar" class="hidden">
+                        <div id="quiz-timer-fill"></div>
+                    </div>
                     <canvas id="quizCanvas" width="200" height="150"></canvas>
                     <p id="quiz-question-text"></p>
                     <div id="quiz-answers">
@@ -64,6 +67,11 @@
                         <span class="card-icon">💀</span>
                         <span class="card-title">Nightmare Dash</span>
                         <span class="card-desc">Survive the dark!</span>
+                    </button>
+                    <button class="select-card tmnt-card" id="select-tmnt">
+                        <span class="card-icon">🐢</span>
+                        <span class="card-title">TMNT Blocky Dash</span>
+                        <span class="card-desc">Cowabunga through NYC!</span>
                     </button>
                 </div>
             </div>
@@ -102,6 +110,8 @@
             </div>
         </div>
     </div>
+    <script src="questions_medium_he.js"></script>
+    <script src="questions_hard_en.js"></script>
     <script src="game.js"></script>
 </body>
 

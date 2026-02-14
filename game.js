@@ -26,10 +26,12 @@ function playSound(type) {
     if (type === 'jump') {
         osc.type = 'triangle';
         if (gameMode === 'scary') osc.type = 'sawtooth'; // Rougher jump sound
+        else if (gameMode === 'tmnt') osc.type = 'triangle'; // Ninja whoosh
 
         let startFreq = 300, endFreq = 450;
         if (gameMode === 'scary') { startFreq = 150; endFreq = 200; } // Low moan jump
         else if (gameMode === 'cat') { startFreq = 400; endFreq = 600; } // Higher meow-ish
+        else if (gameMode === 'tmnt') { startFreq = 250; endFreq = 500; } // Ninja whoosh
 
         osc.frequency.setValueAtTime(startFreq, audioCtx.currentTime);
         osc.frequency.linearRampToValueAtTime(endFreq, audioCtx.currentTime + 0.1);
@@ -44,6 +46,10 @@ function playSound(type) {
             osc.type = 'square'; freq = 200; // Eerie chime
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
             osc.frequency.linearRampToValueAtTime(freq - 50, audioCtx.currentTime + 0.1);
+        } else if (gameMode === 'tmnt') {
+            osc.type = 'sine'; freq = 700; // Pizza ding
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(freq + 200, audioCtx.currentTime + 0.1);
         } else {
             if (gameMode === 'cat') freq = 800;
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
@@ -56,7 +62,8 @@ function playSound(type) {
         osc.stop(audioCtx.currentTime + 0.1);
     } else if (type === 'gameover') {
         osc.type = 'sawtooth';
-        if (gameMode === 'scary') osc.type = 'square'; // Harsh static
+        if (gameMode === 'scary') osc.type = 'square';
+        else if (gameMode === 'tmnt') osc.type = 'sawtooth';
 
         osc.frequency.setValueAtTime(150, audioCtx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.5);
@@ -64,12 +71,83 @@ function playSound(type) {
         gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
         osc.start();
         osc.stop(audioCtx.currentTime + 0.5);
+    } else if (type === 'shoot') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.05);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+    } else if (type === 'powerup') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(1200, audioCtx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+    } else if (type === 'powerup_end') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(200, audioCtx.currentTime + 0.25);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.25);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.25);
+    } else if (type === 'explosion') {
+        // 8-bit explosion: noise burst with pitch drop
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.25);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.25);
+        // Layer a second noise for crunch
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.type = 'square';
+        osc2.frequency.setValueAtTime(200, audioCtx.currentTime);
+        osc2.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.15);
+        gain2.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain2.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+        osc2.start();
+        osc2.stop(audioCtx.currentTime + 0.2);
+    } else if (type === 'destroy_reward') {
+        // Triumphant ascending arpeggio
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(523, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.06);
+        osc.frequency.setValueAtTime(784, audioCtx.currentTime + 0.12);
+        osc.frequency.setValueAtTime(1047, audioCtx.currentTime + 0.18);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+    } else if (type === 'quiz_tick') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.05);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+    } else if (type === 'quiz_timeout') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.4);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.4);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
     }
 }
 
 // Game State
 let gameState = 'SELECT'; // SELECT, LEVEL, START, PLAYING, GAMEOVER
-let gameMode = null; // 'spongebob', 'cat', 'bluey', or 'scary'
+let gameMode = null; // 'spongebob', 'cat', 'bluey', 'scary', or 'tmnt'
 let gameLevel = 'easy'; // 'easy', 'medium', 'hard'
 let gameSpeed = 1.0; // 0.5 – 2.0, controlled by settings
 let settingsOpen = false;
@@ -83,9 +161,34 @@ let currentScene = 'BIKINI_BOTTOM';
 // Scenes: BIKINI_BOTTOM -> KELP_FOREST -> JELLYFISH_FIELDS -> DEEP_OCEAN -> KRUSTY_KRAB
 let bgCreatures = []; // Swimming jellyfish & fish (background only, not enemies)
 
+// Progressive Difficulty
+let difficultyMultiplier = 1.0; // scales 1.0 -> ~2.5
+let baseScrollSpeed = 2;
+let sceneSpeedBoost = 0; // +0.3 per scene change
+let baseSpawnRate = 0.02;
+let difficultyTier = 0; // 0-3, gates which enemy types appear
+
+// Enemy System
+let projectiles = []; // enemy-fired projectiles
+let playerProjectiles = []; // player-fired projectiles (shooting power-up)
+
+// Riddle & Power-up System
+let riddleActive = false;
+let currentRiddle = null;
+let riddleTimer = 0;
+let riddleMaxTime = 600; // 10 seconds at 60fps
+let activePowerUp = null; // null / 'triple_jump' / 'shooting' / 'invulnerable'
+let powerUpTimer = 0;
+let powerUpMaxTimer = 600; // 10 seconds at 60fps
+
 // Audio
 let musicInterval = null;
 let noteIndex = 0;
+let currentMusicTempo = 200; // ms per note, gets faster over time
+let musicMelody = null; // cached melody for tempo changes
+
+// Particle System
+let particles = [];
 
 // Elements
 const selectScreen = document.getElementById('select-screen');
@@ -100,6 +203,7 @@ const selectSpongebob = document.getElementById('select-spongebob');
 const selectCat = document.getElementById('select-cat');
 const selectBluey = document.getElementById('select-bluey');
 const selectScary = document.getElementById('select-scary');
+const selectTmnt = document.getElementById('select-tmnt');
 const settingsBtn = document.getElementById('settings-btn');
 const settingsOverlay = document.getElementById('settings-overlay');
 const settingsCloseBtn = document.getElementById('settings-close-btn');
@@ -129,7 +233,8 @@ function selectMode(mode) {
         spongebob: "SpongeBob's Blocky Dash",
         cat: "Cat's Blocky Dash",
         bluey: "Bluey's Blocky Dash",
-        scary: "Nightmare Dash"
+        scary: "Nightmare Dash",
+        tmnt: "TMNT Blocky Dash"
     };
     gameTitle.textContent = titles[mode] || "Blocky Dash";
 }
@@ -142,7 +247,7 @@ function selectLevel(level) {
 }
 
 // Event Listeners
-const modeButtons = { spongebob: selectSpongebob, cat: selectCat, bluey: selectBluey, scary: selectScary };
+const modeButtons = { spongebob: selectSpongebob, cat: selectCat, bluey: selectBluey, scary: selectScary, tmnt: selectTmnt };
 Object.entries(modeButtons).forEach(([mode, btn]) => {
     btn.addEventListener('click', () => { initAudio(); selectMode(mode); });
     btn.addEventListener('touchstart', (e) => { e.preventDefault(); initAudio(); selectMode(mode); }, { passive: false });
@@ -264,7 +369,7 @@ function startGame() {
     score = 0;
     lives = 5; // Reset lives
     sceneTimer = 0;
-    const startScenes = { spongebob: 'BIKINI_BOTTOM', cat: 'COZY_HOUSE', bluey: 'BACKYARD', scary: 'HAUNTED_HOUSE' };
+    const startScenes = { spongebob: 'BIKINI_BOTTOM', cat: 'COZY_HOUSE', bluey: 'BACKYARD', scary: 'HAUNTED_HOUSE', tmnt: 'NYC_SEWERS' };
     currentScene = startScenes[gameMode] || 'BIKINI_BOTTOM';
 
     // Reset entities
@@ -276,6 +381,33 @@ function startGame() {
     collectibles = [];
     bgCharacters = [];
     bgCreatures = [];
+
+    // Reset progressive difficulty
+    difficultyMultiplier = 1.0;
+    difficultyTier = 0;
+    sceneSpeedBoost = 0;
+
+    // Reset enemy/projectile systems
+    projectiles = [];
+    playerProjectiles = [];
+
+    // Reset riddle/power-up systems
+    riddleActive = false;
+    currentRiddle = null;
+    riddleTimer = 0;
+    activePowerUp = null;
+    powerUpTimer = 0;
+    if (window.riddleCountdown) clearInterval(window.riddleCountdown);
+
+    // Reset animation systems
+    particles = [];
+    floatingTexts = [];
+    screenFlash = { active: false, alpha: 0, color: '#FFF', timer: 0 };
+    gameTick = 0;
+
+    // Reset quiz timer
+    if (quizTimerInterval) clearInterval(quizTimerInterval);
+    quizTimerInterval = null;
 
     // Resume audio context if needed
     if (audioCtx && audioCtx.state === 'suspended') {
@@ -300,6 +432,30 @@ function resetGame() {
     quizOverlay.classList.add('hidden');
     settingsOpen = false;
     selectScreen.classList.remove('hidden');
+
+    // Reset all new systems
+    difficultyMultiplier = 1.0;
+    difficultyTier = 0;
+    sceneSpeedBoost = 0;
+    projectiles = [];
+    playerProjectiles = [];
+    riddleActive = false;
+    currentRiddle = null;
+    riddleTimer = 0;
+    activePowerUp = null;
+    powerUpTimer = 0;
+    if (window.riddleCountdown) clearInterval(window.riddleCountdown);
+
+    // Reset animation systems
+    particles = [];
+    floatingTexts = [];
+    screenFlash = { active: false, alpha: 0, color: '#FFF', timer: 0 };
+
+    // Reset quiz timer
+    if (quizTimerInterval) clearInterval(quizTimerInterval);
+    quizTimerInterval = null;
+    quizTimerBar.classList.add('hidden');
+
     stopMusic();
 }
 
@@ -332,6 +488,14 @@ function startMusic() {
             196.00, 0, 0, 0, 233.08, 0, 0, 0,
             174.61, 0, 0, 0, 164.81, 0, 0, 0
         ];
+    } else if (gameMode === 'tmnt') {
+        // E minor pentatonic — fast punchy action theme
+        melody = [
+            329.63, 0, 392.00, 0, 440.00, 0, 493.88, 0,
+            659.25, 0, 587.33, 0, 493.88, 0, 440.00, 0,
+            329.63, 0, 329.63, 392.00, 440.00, 0, 587.33, 0,
+            493.88, 0, 440.00, 0, 392.00, 0, 329.63, 0
+        ];
     } else {
         melody = [
             392.00, 0, 392.00, 440.00, 392.00, 0, 493.88, 523.25,
@@ -341,8 +505,11 @@ function startMusic() {
         ];
     }
 
+    musicMelody = melody;
+    currentMusicTempo = 200;
+
     musicInterval = setInterval(() => {
-        const freq = melody[noteIndex % melody.length];
+        const freq = musicMelody[noteIndex % musicMelody.length];
         noteIndex++;
 
         if (freq > 0 && audioCtx && audioCtx.state === 'running') {
@@ -354,22 +521,246 @@ function startMusic() {
             osc.type = 'square'; // 8-bit sound
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
-            // Short blip
+            // Short blip — note duration scales with tempo
+            let noteDur = currentMusicTempo / 1000 * 0.75;
             gain.gain.setValueAtTime(0.05, audioCtx.currentTime); // Low volume
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + noteDur);
 
             osc.start();
-            osc.stop(audioCtx.currentTime + 0.2);
+            osc.stop(audioCtx.currentTime + noteDur + 0.05);
         }
-    }, 200); // 300bpm-ish (fast paced)
+    }, currentMusicTempo);
 }
 
 function stopMusic() {
     if (musicInterval) clearInterval(musicInterval);
+    musicInterval = null;
+    currentMusicTempo = 200;
+    musicMelody = null;
+}
+
+function updateMusicTempo() {
+    if (!musicMelody || !musicInterval) return;
+    // Map difficultyMultiplier (1.0 -> 2.5) to tempo (200ms -> 110ms)
+    let t = Math.min((difficultyMultiplier - 1.0) / 1.5, 1.0);
+    let targetTempo = Math.round(200 - t * 90); // 200ms down to 110ms
+    if (Math.abs(targetTempo - currentMusicTempo) >= 5) {
+        currentMusicTempo = targetTempo;
+        clearInterval(musicInterval);
+        musicInterval = setInterval(() => {
+            const freq = musicMelody[noteIndex % musicMelody.length];
+            noteIndex++;
+            if (freq > 0 && audioCtx && audioCtx.state === 'running') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                let noteDur = currentMusicTempo / 1000 * 0.75;
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + noteDur);
+                osc.start();
+                osc.stop(audioCtx.currentTime + noteDur + 0.05);
+            }
+        }, currentMusicTempo);
+    }
+}
+
+// === PARTICLE SYSTEM ===
+function spawnParticles(x, y, type) {
+    let count, colors, speed, life, size;
+    if (type === 'life_gain') {
+        count = 20;
+        colors = ['#FF4081', '#FF80AB', '#F50057', '#FFD700', '#FF6D00'];
+        speed = 4;
+        life = 50;
+        size = 6;
+    } else if (type === 'correct_answer') {
+        count = 30;
+        colors = ['#69F0AE', '#00E676', '#76FF03', '#FFD740', '#FFFFFF'];
+        speed = 5;
+        life = 60;
+        size = 7;
+    } else if (type === 'collect') {
+        count = 8;
+        colors = ['#FFD700', '#FFC107', '#FFAB00'];
+        speed = 3;
+        life = 25;
+        size = 4;
+    } else if (type === 'explosion') {
+        count = 25;
+        colors = ['#FF6D00', '#FF3D00', '#FFD740', '#FFAB00', '#FFFFFF', '#FF9100'];
+        speed = 6;
+        life = 35;
+        size = 8;
+    } else if (type === 'bullet_hit') {
+        count = 12;
+        colors = ['#FFEB3B', '#FFC107', '#FF9800', '#FFFFFF'];
+        speed = 4;
+        life = 20;
+        size = 5;
+    }
+    for (let i = 0; i < count; i++) {
+        let angle = (Math.PI * 2 / count) * i + (Math.random() - 0.5) * 0.5;
+        let spd = speed * (0.5 + Math.random() * 0.8);
+        particles.push({
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd - (type === 'life_gain' ? 2 : 1),
+            life: life + Math.floor(Math.random() * 15),
+            maxLife: life + 15,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            size: size * (0.5 + Math.random() * 0.5),
+            type: type
+        });
+    }
+}
+
+function updateParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.08; // gentle gravity
+        p.vx *= 0.98; // friction
+        p.life--;
+        if (p.life <= 0) {
+            particles.splice(i, 1);
+        }
+    }
+}
+
+function drawParticles() {
+    particles.forEach(p => {
+        let alpha = p.life / p.maxLife;
+        let sz = p.size * alpha;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = p.color;
+        if (p.type === 'life_gain') {
+            // Draw tiny hearts
+            ctx.font = `${Math.max(8, sz * 3)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('❤', p.x, p.y);
+        } else if (p.type === 'correct_answer') {
+            // Draw stars / sparkles
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.life * 0.15);
+            drawStar(0, 0, sz, sz * 0.4, 4);
+            ctx.fill();
+        } else if (p.type === 'explosion') {
+            // 8-bit explosion: chunky square fragments
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.life * 0.2);
+            let blockSz = Math.max(2, sz * 1.2);
+            ctx.fillRect(-blockSz / 2, -blockSz / 2, blockSz, blockSz);
+            // Inner glow
+            ctx.globalAlpha = alpha * 0.5;
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(-blockSz / 4, -blockSz / 4, blockSz / 2, blockSz / 2);
+        } else if (p.type === 'bullet_hit') {
+            // Sharp spark lines radiating out
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x + p.vx * 2, p.y + p.vy * 2);
+            ctx.stroke();
+            // Dot at tip
+            ctx.fillRect(p.x - 1, p.y - 1, 3, 3);
+        } else {
+            // Simple circles for collect
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, sz, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    });
+}
+
+function drawStar(cx, cy, outerR, innerR, points) {
+    ctx.beginPath();
+    for (let i = 0; i < points * 2; i++) {
+        let r = i % 2 === 0 ? outerR : innerR;
+        let angle = (Math.PI / points) * i - Math.PI / 2;
+        if (i === 0) ctx.moveTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+        else ctx.lineTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+    }
+    ctx.closePath();
+}
+
+// Flash overlay for big events
+let screenFlash = { active: false, alpha: 0, color: '#FFF', timer: 0 };
+
+function triggerScreenFlash(color, duration) {
+    screenFlash = { active: true, alpha: 0.4, color: color, timer: duration || 20 };
+}
+
+function updateScreenFlash() {
+    if (!screenFlash.active) return;
+    screenFlash.timer--;
+    screenFlash.alpha *= 0.88;
+    if (screenFlash.timer <= 0) screenFlash.active = false;
+}
+
+function drawScreenFlash() {
+    if (!screenFlash.active) return;
+    ctx.save();
+    ctx.globalAlpha = screenFlash.alpha;
+    ctx.fillStyle = screenFlash.color;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+}
+
+// Floating text system
+let floatingTexts = [];
+
+function spawnFloatingText(x, y, text, color, fontSize) {
+    floatingTexts.push({
+        x: x,
+        y: y,
+        text: text,
+        color: color || '#FFD700',
+        fontSize: fontSize || 24,
+        life: 60,
+        maxLife: 60,
+        vy: -2
+    });
+}
+
+function updateFloatingTexts() {
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        let ft = floatingTexts[i];
+        ft.y += ft.vy;
+        ft.vy *= 0.97;
+        ft.life--;
+        if (ft.life <= 0) floatingTexts.splice(i, 1);
+    }
+}
+
+function drawFloatingTexts() {
+    floatingTexts.forEach(ft => {
+        let alpha = ft.life / ft.maxLife;
+        let scale = 1 + (1 - alpha) * 0.3;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.font = `bold ${Math.round(ft.fontSize * scale)}px "VT323", monospace`;
+        ctx.fillStyle = ft.color;
+        ctx.textAlign = 'center';
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = 3;
+        ctx.strokeText(ft.text, ft.x, ft.y);
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.restore();
+    });
 }
 
 function playerJump() {
-    if (player.jumpCount < 2) {
+    let maxJumps = activePowerUp === 'triple_jump' ? 3 : 2;
+    if (player.jumpCount < maxJumps) {
         player.vy = player.jumpCount === 0 ? -14 : -11;
         player.grounded = false;
         player.jumpCount++;
@@ -379,6 +770,24 @@ function playerJump() {
 
 function updateScoreUI() {
     // Score is now drawn in drawUI
+}
+
+function showGameOver() {
+    gameState = 'GAMEOVER';
+    if (gameLevel === 'medium') {
+        gameOverScreen.querySelector('h1').textContent = 'המשחק נגמר';
+        gameOverScreen.querySelector('p').innerHTML = 'ניקוד: <span id="final-score">0</span>';
+        document.getElementById('final-score').innerText = score;
+        document.getElementById('restart-btn').textContent = 'נסה שוב';
+    } else {
+        gameOverScreen.querySelector('h1').textContent = 'GAME OVER';
+        gameOverScreen.querySelector('p').innerHTML = 'Score: <span id="final-score">0</span>';
+        document.getElementById('final-score').innerText = score;
+        document.getElementById('restart-btn').textContent = 'TRY AGAIN';
+    }
+    gameOverScreen.classList.remove('hidden');
+    playSound('gameover');
+    stopMusic();
 }
 
 // Entities
@@ -397,24 +806,183 @@ let obstacles = [];
 let collectibles = [];
 let bgCharacters = [];
 
+// === PROGRESSIVE DIFFICULTY ===
+function updateDifficulty() {
+    // Ramp over ~2.5 minutes (9000 frames at 60fps) — steeper curve
+    let t = Math.min(gameTick / 9000, 1.0);
+    // Use an ease-in curve so the speed increase is gentle at first, then accelerates
+    let curve = t * t * (3 - 2 * t); // smoothstep
+    let levelScale = gameLevel === 'easy' ? 0.8 : gameLevel === 'hard' ? 1.3 : 1.0;
+    difficultyMultiplier = (1.0 + curve * 2.0) * levelScale;
+    difficultyMultiplier = Math.min(difficultyMultiplier, 3.0);
+
+    // Set tier based on elapsed time (at 60fps)
+    let seconds = gameTick / 60;
+    if (seconds < 20) difficultyTier = 0;
+    else if (seconds < 60) difficultyTier = 1;
+    else if (seconds < 120) difficultyTier = 2;
+    else difficultyTier = 3;
+}
+
+// === ENEMY AI UPDATE ===
+function updateEnemies() {
+    obstacles.forEach(o => {
+        if (o.type === 'ground_walker') {
+            o.walkTimer = (o.walkTimer || 0) + 1;
+            if (o.walkTimer > 90) { o.walkDir *= -1; o.walkTimer = 0; }
+            o.x += o.walkDir * 0.8;
+        }
+        else if (o.type === 'shooter') {
+            o.shootTimer = (o.shootTimer || 0) + 1;
+            if (o.shootTimer >= 120) {
+                o.shootTimer = 0;
+                projectiles.push({
+                    x: o.x - 5,
+                    y: o.y + o.height / 2,
+                    width: 8,
+                    height: 8,
+                    vx: -3,
+                    vy: 0
+                });
+                playSound('shoot');
+            }
+        }
+        else if (o.type === 'falling') {
+            if (!o.triggered) {
+                let dist = Math.abs((o.x + o.width / 2) - (player.x + player.width / 2));
+                if (dist < 120) o.triggered = true;
+            } else {
+                o.vy = (o.vy || 0) + 0.3;
+                o.y += o.vy;
+            }
+        }
+        else if (o.type === 'bouncer') {
+            o.bouncePhase = (o.bouncePhase || 0) + 0.05;
+            o.y = o.baseY + Math.sin(o.bouncePhase) * 40;
+        }
+    });
+
+    // Update enemy projectiles
+    projectiles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+    });
+    projectiles = projectiles.filter(p => p.x > -20 && p.x < 850 && p.y < 500);
+}
+
+// === POWER-UP SYSTEM ===
+function updatePowerUp() {
+    if (!activePowerUp) return;
+
+    powerUpTimer--;
+    if (powerUpTimer <= 0) {
+        playSound('powerup_end');
+        activePowerUp = null;
+        powerUpTimer = 0;
+        return;
+    }
+
+    // Shooting auto-fire
+    if (activePowerUp === 'shooting' && gameTick % 15 === 0) {
+        playerProjectiles.push({
+            x: player.x + player.width,
+            y: player.y + player.height / 2 - 4,
+            width: 10,
+            height: 8,
+            vx: 6
+        });
+        playSound('shoot');
+    }
+
+    // Update player projectiles
+    playerProjectiles.forEach(p => p.x += p.vx);
+    playerProjectiles = playerProjectiles.filter(p => p.x < 850);
+}
+
+function drawPowerUpUI() {
+    if (!activePowerUp) return;
+
+    let barWidth = 200;
+    let barHeight = 16;
+    let barX = (canvas.width - barWidth) / 2;
+    let barY = 8;
+    let fillRatio = powerUpTimer / powerUpMaxTimer;
+
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
+
+    // Fill color by power-up type
+    let color = '#FFD700';
+    let label = '';
+    if (activePowerUp === 'triple_jump') { color = '#00E5FF'; label = 'TRIPLE JUMP'; }
+    else if (activePowerUp === 'shooting') { color = '#FF6D00'; label = 'SHOOTING'; }
+    else if (activePowerUp === 'invulnerable') { color = '#76FF03'; label = 'INVULNERABLE'; }
+
+    ctx.fillStyle = color;
+    ctx.fillRect(barX, barY, barWidth * fillRatio, barHeight);
+
+    // Border
+    ctx.strokeStyle = '#FFF';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+    // Label
+    ctx.fillStyle = '#FFF';
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(label + ' ' + Math.ceil(powerUpTimer / 60) + 's', canvas.width / 2, barY + 12);
+    ctx.textAlign = 'start';
+}
+
 function gameLoop() {
     if (gameState !== 'PLAYING') return;
     if (settingsOpen) { requestAnimationFrame(gameLoop); return; }
-    if (quizActive) { requestAnimationFrame(gameLoop); return; }
+    if (quizActive) {
+        // Still update and draw particles/effects during quiz
+        updateParticles();
+        updateFloatingTexts();
+        updateScreenFlash();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawBackground();
+        drawBgCharacters();
+        drawBgCreatures();
+        drawEntities();
+        drawParticles();
+        drawFloatingTexts();
+        drawScreenFlash();
+        drawPowerUpUI();
+        drawUI();
+        requestAnimationFrame(gameLoop);
+        return;
+    }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     gameTick++;
     if (player.invulnerable > 0) player.invulnerable--;
 
+    updateDifficulty();
     updatePhysics();
+    updateEnemies();
+    updatePowerUp();
     spawnEntities();
     checkCollisions();
     updateScene();
+    updateParticles();
+    updateFloatingTexts();
+    updateScreenFlash();
+
+    // Adjust music tempo to match game speed
+    if (gameTick % 60 === 0) updateMusicTempo();
 
     drawBackground();
     drawBgCharacters();
     drawBgCreatures();
     drawEntities();
+    drawParticles();
+    drawFloatingTexts();
+    drawScreenFlash();
+    drawPowerUpUI();
     drawUI();
 
     requestAnimationFrame(gameLoop);
@@ -453,12 +1021,13 @@ function updatePhysics() {
         player.y = 200;
         player.vy = 0;
 
-        if (player.invulnerable <= 0) {
+        if (player.invulnerable <= 0 && activePowerUp !== 'invulnerable') {
             player.invulnerable = 60;
 
             if (gameLevel !== 'easy') {
                 // Medium/Hard: trigger quiz instead of instant damage
-                let quizType = Math.random() < 0.5 ? 'math' : 'picture';
+                let r = Math.random();
+                let quizType = r < 0.33 ? 'math' : r < 0.66 ? 'picture' : 'trivia';
                 showQuiz(quizType, 'pit');
                 return;
             }
@@ -468,26 +1037,26 @@ function updatePhysics() {
             playHurtSound();
 
             if (lives <= 0) {
-                gameState = 'GAMEOVER';
-                gameOverScreen.classList.remove('hidden');
-                finalScoreDisplay.innerText = score;
-                playSound('gameover');
-                stopMusic();
+                showGameOver();
                 return;
             }
         }
     }
 
-    // Scroll speed (slowed down for better gameplay)
-    obstacles.forEach(o => o.x -= 2 * gameSpeed);
-    collectibles.forEach(c => c.x -= 2 * gameSpeed);
+    // Scroll speed (progressive difficulty)
+    let scrollSpeed = (baseScrollSpeed + sceneSpeedBoost) * difficultyMultiplier * gameSpeed;
+    obstacles.forEach(o => o.x -= scrollSpeed);
+    collectibles.forEach(c => c.x -= scrollSpeed);
     bgCharacters.forEach(b => b.x -= 1.5 * gameSpeed);
     bgCreatures.forEach(c => {
         c.x -= c.speed * gameSpeed;
         c.y += Math.sin(gameTick * c.wobbleSpeed + c.wobbleOffset) * 0.3;
     });
 
-    obstacles = obstacles.filter(o => o.x + o.width > 0);
+    obstacles = obstacles.filter(o => {
+        if (o.type === 'falling' && o.y > 500) return false;
+        return o.x + o.width > -50;
+    });
     collectibles = collectibles.filter(c => c.x + c.width > 0);
     bgCharacters = bgCharacters.filter(b => b.x + b.width > -100);
     bgCreatures = bgCreatures.filter(c => c.x > -60);
@@ -506,6 +1075,9 @@ function spawnEntities() {
         } else if (gameMode === 'scary') {
             const scaryFriends = ['Skeleton', 'Ghost', 'Zombie'];
             type = scaryFriends[Math.floor(Math.random() * scaryFriends.length)];
+        } else if (gameMode === 'tmnt') {
+            const tmntFriends = ['Raphael', 'Donatello', 'Michelangelo', 'Splinter', 'April'];
+            type = tmntFriends[Math.floor(Math.random() * tmntFriends.length)];
         } else {
             const friends = ['Patrick', 'Squidward', 'Gary'];
             type = friends[Math.floor(Math.random() * friends.length)];
@@ -519,9 +1091,10 @@ function spawnEntities() {
         });
     }
 
-    // 2. Obstacles (only blocks)
-    if (obstacles.length === 0 || (800 - obstacles[obstacles.length - 1].x > 300)) {
-        if (Math.random() < 0.02) {
+    // 2. Obstacles (progressive difficulty)
+    let minGap = Math.max(180, 300 - difficultyTier * 30);
+    if (obstacles.length === 0 || (800 - obstacles[obstacles.length - 1].x > minGap)) {
+        if (Math.random() < baseSpawnRate * difficultyMultiplier) {
             spawnObstacle();
         }
     }
@@ -538,6 +1111,9 @@ function spawnEntities() {
         } else if (gameMode === 'scary') {
             const scaryCreatures = ['bat', 'spider', 'crow', 'wisp'];
             type = scaryCreatures[Math.floor(Math.random() * scaryCreatures.length)];
+        } else if (gameMode === 'tmnt') {
+            const tmntCreatures = ['rat', 'pigeon', 'cockroach', 'sewer_bat'];
+            type = tmntCreatures[Math.floor(Math.random() * tmntCreatures.length)];
         } else {
             const creatureTypes = ['jellyfish', 'fish_blue', 'fish_yellow', 'fish_green'];
             type = creatureTypes[Math.floor(Math.random() * creatureTypes.length)];
@@ -559,7 +1135,16 @@ function spawnEntities() {
         if (gameMode === 'cat') collectType = 'fish';
         else if (gameMode === 'bluey') collectType = 'bone';
         else if (gameMode === 'scary') collectType = 'skull';
+        else if (gameMode === 'tmnt') collectType = 'pizza';
         collectibles.push({ x: 800, y: 250 - Math.random() * 50, width: 30, height: 30, type: collectType });
+    }
+
+    // 5. Riddle Collectibles (less frequent, only if no power-up active)
+    if (!activePowerUp && !riddleActive && Math.random() < 0.003) {
+        collectibles.push({
+            x: 800, y: 220 - Math.random() * 60, width: 30, height: 30,
+            type: 'riddle', isRiddle: true
+        });
     }
 
 }
@@ -577,11 +1162,23 @@ function spawnObstacle() {
         type = 'block';
     }
 
-    if (gameMode === 'scary' && type === 'block' && Math.random() < 0.3) type = 'spike';
+    if ((gameMode === 'scary' || gameMode === 'tmnt') && type === 'block' && Math.random() < 0.3) type = 'spike';
 
-    // Flying obstacles for Cat and Bluey (Hard Mode elements)
-    if ((gameMode === 'cat' || gameMode === 'bluey') && type === 'block' && Math.random() < 0.3) {
+    // Flying obstacles for Cat, Bluey, and TMNT (Hard Mode elements)
+    if ((gameMode === 'cat' || gameMode === 'bluey' || gameMode === 'tmnt') && type === 'block' && Math.random() < 0.3) {
         type = 'flying';
+    }
+
+    // Tier-gated new enemy types (replace some blocks)
+    if (type === 'block' || type === 'tall_block') {
+        let enemyRoll = Math.random();
+        if (difficultyTier >= 3 && enemyRoll < 0.12) {
+            type = 'bouncer';
+        } else if (difficultyTier >= 2 && enemyRoll < 0.22) {
+            type = Math.random() < 0.5 ? 'shooter' : 'falling';
+        } else if (difficultyTier >= 1 && enemyRoll < 0.3) {
+            type = 'ground_walker';
+        }
     }
 
     let newObstacle = {
@@ -607,77 +1204,165 @@ function spawnObstacle() {
         newObstacle.speedY = Math.random() * 2 - 1;
     }
     else if (type === 'pit') {
-        // Pit: a gap in the ground the player must jump over
-        let pitWidth = 60 + Math.floor(Math.random() * 40); // 60-100px wide
+        let pitWidth = 60 + Math.floor(Math.random() * 40);
         newObstacle.width = pitWidth;
-        newObstacle.height = 50; // depth of the pit (visual)
-        newObstacle.y = GROUND_Y; // starts at ground level
+        newObstacle.height = 50;
+        newObstacle.y = GROUND_Y;
         newObstacle.isPit = true;
-        newObstacle.isObstacle = false; // don't use normal collision
+        newObstacle.isObstacle = false;
+    }
+    else if (type === 'ground_walker') {
+        newObstacle.width = 35; newObstacle.height = 35;
+        newObstacle.y = GROUND_Y - 35;
+        newObstacle.walkDir = 1;
+        newObstacle.walkTimer = 0;
+    }
+    else if (type === 'shooter') {
+        newObstacle.width = 40; newObstacle.height = 40;
+        newObstacle.y = GROUND_Y - 40;
+        newObstacle.shootTimer = 0;
+    }
+    else if (type === 'falling') {
+        newObstacle.width = 35; newObstacle.height = 35;
+        newObstacle.y = 50;
+        newObstacle.triggered = false;
+        newObstacle.vy = 0;
+    }
+    else if (type === 'bouncer') {
+        newObstacle.width = 35; newObstacle.height = 35;
+        newObstacle.baseY = 280;
+        newObstacle.y = 280;
+        newObstacle.bouncePhase = Math.random() * Math.PI * 2;
     }
 
     // Prevent overlap
-    let minGap = type === 'pit' ? 200 : 150;
+    let spawnGap = type === 'pit' ? 200 : 150;
     for (let o of obstacles) {
-        if (Math.abs(o.x - newObstacle.x) < minGap) return;
+        if (Math.abs(o.x - newObstacle.x) < spawnGap) return;
     }
     obstacles.push(newObstacle);
 }
 
 function checkCollisions() {
-    const padding = 6; // Reduced from 12 to make collisions more accurate
+    const padding = 6;
 
     obstacles.forEach(o => {
+        if (!o.isObstacle) return;
         if (player.x + padding < o.x + o.width - padding &&
             player.x + player.width - padding > o.x + padding &&
             player.y + padding < o.y + o.height - padding &&
             player.y + player.height - padding > o.y + padding) {
 
-            if (player.invulnerable <= 0) {
-                player.invulnerable = 60; // 1s invincibility
+            if (player.invulnerable <= 0 && activePowerUp !== 'invulnerable') {
+                player.invulnerable = 60;
 
                 if (gameLevel !== 'easy') {
-                    // Medium/Hard: trigger quiz instead of instant damage
-                    let quizType = Math.random() < 0.5 ? 'math' : 'picture';
+                    let r2 = Math.random();
+                    let quizType = r2 < 0.33 ? 'math' : r2 < 0.66 ? 'picture' : 'trivia';
                     showQuiz(quizType, 'obstacle');
                     return;
                 }
 
-                // Easy: normal damage
                 lives--;
                 playHurtSound();
 
                 if (lives <= 0) {
-                    gameState = 'GAMEOVER';
-                    gameOverScreen.classList.remove('hidden');
-                    finalScoreDisplay.innerText = score;
-                    playSound('gameover');
-                    stopMusic();
+                    showGameOver();
                 }
             }
         }
     });
 
-    collectibles.forEach((c, index) => {
+    // Enemy projectile vs player
+    projectiles = projectiles.filter(p => {
+        if (player.x + padding < p.x + p.width &&
+            player.x + player.width - padding > p.x &&
+            player.y + padding < p.y + p.height &&
+            player.y + player.height - padding > p.y) {
+
+            // Bullet hit splash at impact point
+            spawnParticles(p.x + p.width / 2, p.y + p.height / 2, 'bullet_hit');
+
+            if (player.invulnerable <= 0 && activePowerUp !== 'invulnerable') {
+                player.invulnerable = 60;
+
+                if (gameLevel !== 'easy') {
+                    let r3 = Math.random();
+                    let quizType = r3 < 0.33 ? 'math' : r3 < 0.66 ? 'picture' : 'trivia';
+                    showQuiz(quizType, 'projectile');
+                    return false;
+                }
+
+                lives--;
+                playHurtSound();
+
+                if (lives <= 0) {
+                    showGameOver();
+                }
+            }
+            return false; // remove projectile
+        }
+        return true;
+    });
+
+    // Player projectiles vs obstacles (shooting power-up)
+    playerProjectiles = playerProjectiles.filter(pp => {
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            let o = obstacles[i];
+            if (!o.isObstacle) continue;
+            if (pp.x < o.x + o.width && pp.x + pp.width > o.x &&
+                pp.y < o.y + o.height && pp.y + pp.height > o.y) {
+                let hitX = o.x + o.width / 2;
+                let hitY = o.y + o.height / 2;
+                obstacles.splice(i, 1);
+                score += 15;
+                // Explosion animation at impact
+                spawnParticles(hitX, hitY, 'explosion');
+                spawnFloatingText(hitX, hitY - 15, '+15', '#FFD740', 22);
+                triggerScreenFlash('#FF6D00', 8);
+                playSound('explosion');
+                playSound('destroy_reward');
+                return false; // remove player projectile
+            }
+        }
+        // Bullet hit effect when projectile goes off screen (miss splash)
+        return true;
+    });
+
+    // Collectibles (iterate backwards to safely splice)
+    for (let i = collectibles.length - 1; i >= 0; i--) {
+        let c = collectibles[i];
         if (player.x < c.x + c.width &&
             player.x + player.width > c.x &&
             player.y < c.y + c.height &&
             player.y + player.height > c.y) {
 
+            if (c.isRiddle) {
+                collectibles.splice(i, 1);
+                showRiddle();
+                return;
+            }
+
             score++;
 
-            // BONUS LIFE every 10 points (max 6)
+            // Small collect sparkle
+            spawnParticles(c.x + c.width / 2, c.y + c.height / 2, 'collect');
+
             if (score % 10 === 0) {
                 if (lives < 6) {
                     lives++;
-                    playSound('collect');
+                    // Big life gain animation
+                    spawnParticles(player.x + player.width / 2, player.y, 'life_gain');
+                    spawnFloatingText(player.x + player.width / 2, player.y - 20, '+1 LIFE!', '#FF4081', 28);
+                    triggerScreenFlash('#FF80AB', 15);
+                    playSound('powerup');
                 }
             }
 
-            collectibles.splice(index, 1);
+            collectibles.splice(i, 1);
             playSound('collect');
         }
-    });
+    }
 }
 
 function updateScene() {
@@ -693,13 +1378,19 @@ function switchScene() {
         spongebob: ['BIKINI_BOTTOM', 'KELP_FOREST', 'GOO_LAGOON', 'JELLYFISH_FIELDS', 'CHUM_BUCKET', 'DEEP_OCEAN', 'GLOVE_WORLD', 'KRUSTY_KRAB', 'FLYING_DUTCHMAN', 'BOATING_SCHOOL'],
         cat: ['COZY_HOUSE', 'GARDEN', 'ROOFTOP', 'FISH_MARKET', 'ALLEY', 'YARNIA', 'CATNIP_FIELDS', 'MOONLIT_ROOF', 'CAT_CAFE', 'LASER_LAND'],
         bluey: ['BACKYARD', 'CREEK', 'PLAYGROUND', 'BEACH', 'GRANNYS_HOUSE', 'BUSH_WALK', 'DANCE_FLOOR', 'MARKET', 'CAMPING', 'HEELER_HOUSE'],
-        scary: ['HAUNTED_HOUSE', 'GRAVEYARD', 'DARK_FOREST', 'DUNGEON', 'GHOST_SHIP', 'ABANDONED_ASYLUM', 'BLOOD_MOON', 'SPIDER_CAVE', 'WITCH_SWAMP', 'DEMON_REALM']
+        scary: ['HAUNTED_HOUSE', 'GRAVEYARD', 'DARK_FOREST', 'DUNGEON', 'GHOST_SHIP', 'ABANDONED_ASYLUM', 'BLOOD_MOON', 'SPIDER_CAVE', 'WITCH_SWAMP', 'DEMON_REALM'],
+        tmnt: ['NYC_SEWERS', 'ROOFTOP_NYC', 'TECHNODROME', 'SHREDDERS_LAIR', 'APRIL_APARTMENT', 'CENTRAL_PARK', 'DOJO', 'DIMENSION_X', 'TURTLES_LAIR', 'FOOT_HQ']
     };
     let sequence = sequences[gameMode] || sequences.spongebob;
     let idx = sequence.indexOf(currentScene);
     idx = (idx + 1) % sequence.length;
     currentScene = sequence[idx];
-    console.log("Scene: " + currentScene);
+
+    // Speed boost on each scene change
+    sceneSpeedBoost += 0.3;
+    spawnFloatingText(canvas.width / 2, canvas.height / 2, 'SPEED UP!', '#FFD740', 30);
+    triggerScreenFlash('#FFD740', 12);
+    playSound('powerup');
 }
 
 function drawBackground() {
@@ -747,6 +1438,17 @@ function drawBackground() {
     if (currentScene === 'SPIDER_CAVE') skyColor = '#0D0D0D';
     if (currentScene === 'WITCH_SWAMP') skyColor = '#1B2A1B';
     if (currentScene === 'DEMON_REALM') skyColor = '#1A0000';
+    // TMNT World sky colors
+    if (currentScene === 'NYC_SEWERS') skyColor = '#1A1A1A';
+    if (currentScene === 'ROOFTOP_NYC') skyColor = '#0D1B2A';
+    if (currentScene === 'TECHNODROME') skyColor = '#2C2C2C';
+    if (currentScene === 'SHREDDERS_LAIR') skyColor = '#1A0A0A';
+    if (currentScene === 'APRIL_APARTMENT') skyColor = '#F5E6CA';
+    if (currentScene === 'CENTRAL_PARK') skyColor = '#1B5E20';
+    if (currentScene === 'DOJO') skyColor = '#3E2723';
+    if (currentScene === 'DIMENSION_X') skyColor = '#4A0072';
+    if (currentScene === 'TURTLES_LAIR') skyColor = '#1A1A1A';
+    if (currentScene === 'FOOT_HQ') skyColor = '#212121';
 
     ctx.fillStyle = skyColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1948,9 +2650,85 @@ function drawBackground() {
             ctx.fillStyle = '#FFF9C4';
             ctx.beginPath(); ctx.arc(700, 80, 40, 0, Math.PI * 2); ctx.fill();
         }
+    } else if (gameMode === 'tmnt') {
+        // --- TMNT WORLD BACKGROUNDS ---
+        if (currentScene === 'NYC_SEWERS') {
+            // Horizontal pipes
+            ctx.fillStyle = '#555';
+            for (let i = 0; i < 4; i++) {
+                let py = 80 + i * 90;
+                let px = (i * 300 + 100 - gameTick * 0.3) % (canvas.width + 300);
+                if (px < -200) px += canvas.width + 300;
+                ctx.fillRect(px, py, 180, 12);
+                ctx.fillStyle = '#666';
+                ctx.fillRect(px, py, 180, 4);
+                ctx.fillStyle = '#555';
+                // Pipe joints
+                ctx.fillRect(px + 80, py - 3, 20, 18);
+            }
+            // Dripping water
+            ctx.fillStyle = 'rgba(100, 200, 255, 0.4)';
+            for (let d = 0; d < 6; d++) {
+                let dx = (d * 150 + gameTick * 0.1) % canvas.width;
+                let dy = (gameTick * 1.5 + d * 80) % 350;
+                ctx.beginPath(); ctx.ellipse(dx, dy, 2, 4, 0, 0, Math.PI * 2); ctx.fill();
+            }
+        } else if (currentScene === 'ROOFTOP_NYC') {
+            // NYC Skyline silhouette
+            ctx.fillStyle = '#111';
+            let buildings = [60, 120, 80, 150, 100, 90, 130, 70, 110, 140];
+            for (let i = 0; i < buildings.length; i++) {
+                let bx = (i * 100 - gameTick * 0.2) % (canvas.width + 200);
+                if (bx < -80) bx += canvas.width + 200;
+                ctx.fillRect(bx, 400 - buildings[i], 60, buildings[i]);
+                // Lit windows
+                ctx.fillStyle = '#FFE082';
+                for (let wy = 400 - buildings[i] + 10; wy < 390; wy += 20) {
+                    for (let wx = 8; wx < 52; wx += 18) {
+                        if (Math.random() > 0.3) ctx.fillRect(bx + wx, wy, 8, 8);
+                    }
+                }
+                ctx.fillStyle = '#111';
+            }
+            // Moon
+            ctx.fillStyle = '#FFF9C4';
+            ctx.beginPath(); ctx.arc(700, 60, 30, 0, Math.PI * 2); ctx.fill();
+        } else if (currentScene === 'TECHNODROME') {
+            // Rotating gears
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 3;
+            for (let g = 0; g < 3; g++) {
+                let gx = (g * 300 + 150 - gameTick * 0.3) % (canvas.width + 200);
+                if (gx < -60) gx += canvas.width + 200;
+                let radius = 30 + g * 10;
+                ctx.beginPath(); ctx.arc(gx, 200, radius, 0, Math.PI * 2); ctx.stroke();
+                // Teeth
+                for (let t = 0; t < 8; t++) {
+                    let angle = t * Math.PI / 4 + gameTick * 0.02;
+                    ctx.fillStyle = '#666';
+                    ctx.fillRect(gx + Math.cos(angle) * radius - 3, 200 + Math.sin(angle) * radius - 3, 6, 6);
+                }
+            }
+            // Metal panels
+            ctx.fillStyle = 'rgba(100, 100, 100, 0.2)';
+            for (let p = 0; p < 8; p++) {
+                let px = p * 120;
+                ctx.fillRect(px, 300, 100, 80);
+                ctx.strokeStyle = '#444'; ctx.lineWidth = 1;
+                ctx.strokeRect(px, 300, 100, 80);
+            }
+        }
+        // Smog/clouds for outdoor TMNT scenes
+        if (currentScene === 'ROOFTOP_NYC' || currentScene === 'CENTRAL_PARK' || currentScene === 'APRIL_APARTMENT') {
+            ctx.fillStyle = 'rgba(150, 150, 150, 0.15)';
+            for (let i = 0; i < 4; i++) {
+                let cx = (i * 250 + gameTick * 0.15) % (canvas.width + 300) - 150;
+                ctx.beginPath(); ctx.arc(cx, 60 + i * 20, 40, 0, Math.PI * 2); ctx.arc(cx + 30, 50 + i * 20, 35, 0, Math.PI * 2); ctx.fill();
+            }
+        }
     }
 
-    // Underwater bubbles on SpongeBob, dust on Cat, pollen on Bluey, fog/embers on Scary
+    // Underwater bubbles on SpongeBob, dust on Cat, pollen on Bluey, fog/embers on Scary, steam on TMNT
     if (gameMode === 'cat') {
         // Floating dust motes
         ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
@@ -1982,6 +2760,23 @@ function drawBackground() {
                 let ex = (i * 43 + Math.sin(gameTick * 0.1) * 10) % canvas.width;
                 let ey = (400 - (gameTick * 1.5 + i * 20) % 400);
                 ctx.fillRect(ex, ey, 2, 2);
+            }
+        }
+    } else if (gameMode === 'tmnt') {
+        // Rising steam/mist from ground
+        ctx.fillStyle = 'rgba(200, 200, 200, 0.08)';
+        for (let i = 0; i < 6; i++) {
+            let sx = (i * 140 + gameTick * 0.2) % canvas.width;
+            let sy = 380 - (gameTick * 0.5 + i * 50) % 200;
+            ctx.beginPath(); ctx.ellipse(sx, sy, 15, 8, 0, 0, Math.PI * 2); ctx.fill();
+        }
+        // Green ooze drips in sewer/tech scenes
+        if (currentScene === 'NYC_SEWERS' || currentScene === 'TECHNODROME' || currentScene === 'TURTLES_LAIR') {
+            ctx.fillStyle = 'rgba(118, 255, 3, 0.3)';
+            for (let i = 0; i < 5; i++) {
+                let ox = (i * 170 + 30) % canvas.width;
+                let oy = (gameTick * 1.2 + i * 60) % 380;
+                ctx.beginPath(); ctx.ellipse(ox, oy, 2, 5, 0, 0, Math.PI * 2); ctx.fill();
             }
         }
     } else {
@@ -2063,6 +2858,18 @@ function drawScrollingGround() {
     if (currentScene === 'MARKET') { mainColor = '#F48FB1'; detailColor = '#F06292'; }
     if (currentScene === 'CAMPING') { mainColor = '#3E2723'; detailColor = '#4E342E'; }
     if (currentScene === 'HEELER_HOUSE') { mainColor = '#FFAB91'; detailColor = '#FF8A65'; }
+
+    // TMNT World Ground Colors
+    if (currentScene === 'NYC_SEWERS') { mainColor = '#37474F'; detailColor = '#263238'; }
+    if (currentScene === 'ROOFTOP_NYC') { mainColor = '#455A64'; detailColor = '#37474F'; }
+    if (currentScene === 'TECHNODROME') { mainColor = '#616161'; detailColor = '#424242'; }
+    if (currentScene === 'SHREDDERS_LAIR') { mainColor = '#4E342E'; detailColor = '#3E2723'; }
+    if (currentScene === 'APRIL_APARTMENT') { mainColor = '#8D6E63'; detailColor = '#795548'; }
+    if (currentScene === 'CENTRAL_PARK') { mainColor = '#558B2F'; detailColor = '#33691E'; }
+    if (currentScene === 'DOJO') { mainColor = '#795548'; detailColor = '#5D4037'; }
+    if (currentScene === 'DIMENSION_X') { mainColor = '#6A1B9A'; detailColor = '#4A148C'; }
+    if (currentScene === 'TURTLES_LAIR') { mainColor = '#424242'; detailColor = '#303030'; }
+    if (currentScene === 'FOOT_HQ') { mainColor = '#37474F'; detailColor = '#263238'; }
 
     // Scary World Ground Colors
     if (currentScene === 'HAUNTED_HOUSE') { mainColor = '#424242'; detailColor = '#212121'; }
@@ -2581,6 +3388,149 @@ function drawBgCharacters() {
             ctx.fillRect(12, 34, 5, 8); ctx.fillRect(23, 34, 5, 8);
         }
 
+        // === TMNT World Background Characters ===
+        else if (char.type === 'Raphael') {
+            // Green turtle, red bandana, sai weapon
+            ctx.fillStyle = '#4CAF50';
+            ctx.beginPath(); ctx.ellipse(20, 28, 12, 10, 0, 0, Math.PI * 2); ctx.fill(); // body
+            ctx.beginPath(); ctx.arc(20, 12, 9, 0, Math.PI * 2); ctx.fill(); // head
+            // Red bandana
+            ctx.fillStyle = '#D32F2F';
+            ctx.fillRect(11, 9, 18, 5);
+            // Bandana tail
+            ctx.strokeStyle = '#D32F2F'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(29, 12); ctx.lineTo(36, 10 + Math.sin(gameTick * 0.1) * 2); ctx.stroke();
+            // Eyes
+            ctx.fillStyle = 'white';
+            ctx.beginPath(); ctx.arc(16, 11, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 11, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(16, 11, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 11, 1, 0, Math.PI * 2); ctx.fill();
+            // Sai weapon
+            ctx.strokeStyle = '#90A4AE'; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(32, 20); ctx.lineTo(38, 5); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(35, 10); ctx.lineTo(38, 8); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(35, 10); ctx.lineTo(32, 8); ctx.stroke();
+            // Legs
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(14, 36, 5, 8); ctx.fillRect(21, 36, 5, 8);
+        }
+        else if (char.type === 'Donatello') {
+            // Green turtle, purple bandana, bo staff
+            ctx.fillStyle = '#4CAF50';
+            ctx.beginPath(); ctx.ellipse(20, 28, 12, 10, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(20, 12, 9, 0, Math.PI * 2); ctx.fill();
+            // Purple bandana
+            ctx.fillStyle = '#7B1FA2';
+            ctx.fillRect(11, 9, 18, 5);
+            ctx.strokeStyle = '#7B1FA2'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(29, 12); ctx.lineTo(36, 10 + Math.sin(gameTick * 0.1) * 2); ctx.stroke();
+            // Eyes
+            ctx.fillStyle = 'white';
+            ctx.beginPath(); ctx.arc(16, 11, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 11, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(16, 11, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 11, 1, 0, Math.PI * 2); ctx.fill();
+            // Bo staff
+            ctx.strokeStyle = '#795548'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30, 45); ctx.stroke();
+            // Legs
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(14, 36, 5, 8); ctx.fillRect(21, 36, 5, 8);
+        }
+        else if (char.type === 'Michelangelo') {
+            // Green turtle, orange bandana, nunchucks, big grin
+            ctx.fillStyle = '#4CAF50';
+            ctx.beginPath(); ctx.ellipse(20, 28, 12, 10, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(20, 12, 9, 0, Math.PI * 2); ctx.fill();
+            // Orange bandana
+            ctx.fillStyle = '#FF9800';
+            ctx.fillRect(11, 9, 18, 5);
+            ctx.strokeStyle = '#FF9800'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(29, 12); ctx.lineTo(36, 10 + Math.sin(gameTick * 0.1) * 2); ctx.stroke();
+            // Eyes
+            ctx.fillStyle = 'white';
+            ctx.beginPath(); ctx.arc(16, 11, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 11, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(16, 11, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(24, 11, 1, 0, Math.PI * 2); ctx.fill();
+            // Big grin
+            ctx.strokeStyle = '#FFF'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(20, 16, 5, 0, Math.PI); ctx.stroke();
+            // Nunchucks (swinging animated)
+            let nunchuckAngle = Math.sin(gameTick * 0.15) * 0.5;
+            ctx.strokeStyle = '#795548'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(32, 22); ctx.lineTo(36, 15); ctx.stroke();
+            ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(36, 15);
+            ctx.lineTo(36 + Math.sin(nunchuckAngle) * 8, 15 - Math.cos(nunchuckAngle) * 8); ctx.stroke();
+            ctx.strokeStyle = '#795548'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(36 + Math.sin(nunchuckAngle) * 8, 15 - Math.cos(nunchuckAngle) * 8);
+            ctx.lineTo(36 + Math.sin(nunchuckAngle) * 12, 15 - Math.cos(nunchuckAngle) * 12); ctx.stroke();
+            // Legs
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(14, 36, 5, 8); ctx.fillRect(21, 36, 5, 8);
+        }
+        else if (char.type === 'Splinter') {
+            // Brown-robed rat with ears, whiskers, walking stick
+            ctx.fillStyle = '#5D4037';
+            ctx.fillRect(10, 15, 20, 30); // robe
+            // Head
+            ctx.fillStyle = '#8D6E63';
+            ctx.beginPath(); ctx.arc(20, 10, 8, 0, Math.PI * 2); ctx.fill();
+            // Ears
+            ctx.fillStyle = '#A1887F';
+            ctx.beginPath(); ctx.arc(12, 4, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(28, 4, 4, 0, Math.PI * 2); ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(17, 9, 1.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(23, 9, 1.5, 0, Math.PI * 2); ctx.fill();
+            // Whiskers
+            ctx.strokeStyle = '#BDBDBD'; ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.moveTo(14, 12); ctx.lineTo(5, 10); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(14, 14); ctx.lineTo(5, 15); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(26, 12); ctx.lineTo(35, 10); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(26, 14); ctx.lineTo(35, 15); ctx.stroke();
+            // Walking stick
+            ctx.strokeStyle = '#795548'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(33, 15); ctx.lineTo(35, 45); ctx.stroke();
+        }
+        else if (char.type === 'April') {
+            // April O'Neil — yellow jumpsuit, red hair, blue eyes
+            // Red hair
+            ctx.fillStyle = '#E65100';
+            ctx.beginPath(); ctx.arc(20, 8, 9, 0, Math.PI * 2); ctx.fill();
+            // Face
+            ctx.fillStyle = '#FFCC80';
+            ctx.beginPath(); ctx.arc(20, 10, 7, 0, Math.PI * 2); ctx.fill();
+            // Blue eyes
+            ctx.fillStyle = '#1565C0';
+            ctx.beginPath(); ctx.arc(17, 9, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(23, 9, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(17, 9, 0.8, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(23, 9, 0.8, 0, Math.PI * 2); ctx.fill();
+            // Mouth
+            ctx.strokeStyle = '#D84315'; ctx.lineWidth = 0.8;
+            ctx.beginPath(); ctx.arc(20, 13, 2, 0, Math.PI); ctx.stroke();
+            // Yellow jumpsuit body
+            ctx.fillStyle = '#FDD835';
+            ctx.fillRect(12, 18, 16, 20);
+            // White belt
+            ctx.fillStyle = '#FFF';
+            ctx.fillRect(12, 28, 16, 3);
+            // Legs
+            ctx.fillStyle = '#FDD835';
+            ctx.fillRect(14, 38, 5, 8); ctx.fillRect(21, 38, 5, 8);
+            // White boots
+            ctx.fillStyle = '#FFF';
+            ctx.fillRect(13, 43, 7, 4); ctx.fillRect(20, 43, 7, 4);
+        }
+
         ctx.restore();
     });
 }
@@ -2891,15 +3841,90 @@ function drawBgCreatures() {
             ctx.beginPath(); ctx.arc(c.x + 19, c.y + 12, 3, 0, Math.PI * 2); ctx.fill(); // Right Eye
             ctx.beginPath(); ctx.moveTo(c.x + 15, c.y + 16); ctx.lineTo(c.x + 13, c.y + 20); ctx.lineTo(c.x + 17, c.y + 20); ctx.fill(); // Nose
         }
+        // === TMNT World Creatures ===
+        else if (c.type === 'rat') {
+            // Brown rat
+            ctx.fillStyle = '#795548';
+            ctx.beginPath(); ctx.ellipse(c.x, c.y, 8, 5, 0, 0, Math.PI * 2); ctx.fill(); // body
+            // Head
+            ctx.beginPath(); ctx.arc(c.x - 8, c.y, 4, 0, Math.PI * 2); ctx.fill();
+            // Pink ears
+            ctx.fillStyle = '#F48FB1';
+            ctx.beginPath(); ctx.arc(c.x - 10, c.y - 4, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x - 6, c.y - 4, 2.5, 0, Math.PI * 2); ctx.fill();
+            // Eye
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(c.x - 10, c.y, 1, 0, Math.PI * 2); ctx.fill();
+            // Long curving tail
+            ctx.strokeStyle = '#A1887F'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(c.x + 8, c.y);
+            ctx.quadraticCurveTo(c.x + 18, c.y - 8, c.x + 22, c.y + 2); ctx.stroke();
+        }
+        else if (c.type === 'pigeon') {
+            // Grey pigeon with green neck
+            let flapY = Math.sin(gameTick * 0.15 + c.wobbleOffset) * 3;
+            ctx.fillStyle = '#9E9E9E';
+            ctx.beginPath(); ctx.ellipse(c.x, c.y, 8, 5, 0, 0, Math.PI * 2); ctx.fill(); // body
+            // Iridescent green neck
+            ctx.fillStyle = '#2E7D32';
+            ctx.beginPath(); ctx.ellipse(c.x - 6, c.y - 2, 4, 4, 0, 0, Math.PI * 2); ctx.fill();
+            // Head
+            ctx.fillStyle = '#757575';
+            ctx.beginPath(); ctx.arc(c.x - 8, c.y - 5, 3, 0, Math.PI * 2); ctx.fill();
+            // Eye
+            ctx.fillStyle = '#FF6D00';
+            ctx.beginPath(); ctx.arc(c.x - 9, c.y - 5, 1, 0, Math.PI * 2); ctx.fill();
+            // Orange beak
+            ctx.fillStyle = '#FF8F00';
+            ctx.beginPath(); ctx.moveTo(c.x - 11, c.y - 5); ctx.lineTo(c.x - 14, c.y - 4); ctx.lineTo(c.x - 11, c.y - 3); ctx.fill();
+            // Flapping wings
+            ctx.fillStyle = '#BDBDBD';
+            ctx.beginPath(); ctx.ellipse(c.x, c.y - 3 + flapY, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+        }
+        else if (c.type === 'cockroach') {
+            // Small dark brown cockroach
+            ctx.fillStyle = '#4E342E';
+            ctx.beginPath(); ctx.ellipse(c.x, c.y, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+            // Antennae
+            ctx.strokeStyle = '#4E342E'; ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.moveTo(c.x - 4, c.y - 1); ctx.lineTo(c.x - 8, c.y - 5); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(c.x - 3, c.y - 1); ctx.lineTo(c.x - 6, c.y - 6); ctx.stroke();
+            // 3 pairs of legs
+            ctx.strokeStyle = '#3E2723'; ctx.lineWidth = 0.5;
+            for (let l = 0; l < 3; l++) {
+                let lx = c.x - 2 + l * 3;
+                ctx.beginPath(); ctx.moveTo(lx, c.y + 2); ctx.lineTo(lx - 2, c.y + 5); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(lx, c.y + 2); ctx.lineTo(lx + 2, c.y + 5); ctx.stroke();
+            }
+        }
+        else if (c.type === 'sewer_bat') {
+            // Dark bat with flapping wings and red eyes
+            let flapY = Math.sin(gameTick * 0.2 + c.wobbleOffset) * 5;
+            ctx.fillStyle = '#333';
+            ctx.beginPath(); ctx.arc(c.x, c.y, 5, 0, Math.PI * 2); ctx.fill(); // body
+            // Pointed ears
+            ctx.beginPath(); ctx.moveTo(c.x - 3, c.y - 4); ctx.lineTo(c.x - 5, c.y - 9); ctx.lineTo(c.x - 1, c.y - 4); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(c.x + 3, c.y - 4); ctx.lineTo(c.x + 5, c.y - 9); ctx.lineTo(c.x + 1, c.y - 4); ctx.fill();
+            // Flapping wings
+            ctx.beginPath(); ctx.moveTo(c.x - 4, c.y); ctx.lineTo(c.x - 16, c.y - 4 + flapY);
+            ctx.lineTo(c.x - 8, c.y + 2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(c.x + 4, c.y); ctx.lineTo(c.x + 16, c.y - 4 - flapY);
+            ctx.lineTo(c.x + 8, c.y + 2); ctx.fill();
+            // Red eyes
+            ctx.fillStyle = '#F44336';
+            ctx.beginPath(); ctx.arc(c.x - 2, c.y - 1, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x + 2, c.y - 1, 1, 0, Math.PI * 2); ctx.fill();
+        }
 
         ctx.restore();
     });
 }
 
 function drawEntities() {
-    // Player Draw Logic
-    if (player.invulnerable > 0 && Math.floor(gameTick / 4) % 2 === 0) return;
+    // Player Draw Logic (skip player drawing during invulnerability blink frames)
+    let skipPlayerDraw = player.invulnerable > 0 && Math.floor(gameTick / 4) % 2 === 0;
 
+    if (!skipPlayerDraw) {
     let bounce = player.grounded ? Math.sin(gameTick * 0.5) * 2 : 0;
 
     if (gameMode === 'cat') {
@@ -3028,6 +4053,94 @@ function drawEntities() {
 
         ctx.globalAlpha = 1.0;
 
+    } else if (gameMode === 'tmnt') {
+        // === TMNT PLAYER (Leonardo) ===
+        if (player.invulnerable > 0 && Math.floor(gameTick / 4) % 2 === 0) ctx.globalAlpha = 0.5;
+
+        let px = player.x, py = player.y + bounce;
+        let legAnim = player.grounded ? Math.sin(gameTick * 0.5) * 3 : 0;
+
+        // Shell (back)
+        ctx.fillStyle = '#5D4037';
+        ctx.beginPath(); ctx.ellipse(px + 25, py + 28, 18, 14, 0, 0, Math.PI * 2); ctx.fill();
+        // Shell cross-pattern
+        ctx.strokeStyle = '#4E342E'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(px + 12, py + 28); ctx.lineTo(px + 38, py + 28); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(px + 25, py + 16); ctx.lineTo(px + 25, py + 40); ctx.stroke();
+
+        // Green body
+        ctx.fillStyle = '#4CAF50';
+        ctx.beginPath(); ctx.ellipse(px + 25, py + 28, 14, 12, 0, 0, Math.PI * 2); ctx.fill();
+        // Lighter plastron (chest plate)
+        ctx.fillStyle = '#A5D6A7';
+        ctx.beginPath(); ctx.ellipse(px + 25, py + 30, 8, 9, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Head
+        ctx.fillStyle = '#4CAF50';
+        ctx.beginPath(); ctx.arc(px + 25, py + 10, 10, 0, Math.PI * 2); ctx.fill();
+
+        // Blue bandana
+        ctx.fillStyle = '#1565C0';
+        ctx.fillRect(px + 15, py + 7, 20, 6);
+        // Bandana tail (trailing, animated)
+        ctx.strokeStyle = '#1565C0'; ctx.lineWidth = 3;
+        let tailWave = Math.sin(gameTick * 0.12) * 4;
+        ctx.beginPath(); ctx.moveTo(px + 35, py + 10);
+        ctx.quadraticCurveTo(px + 45, py + 8 + tailWave, px + 50, py + 12 + tailWave); ctx.stroke();
+
+        // White eyes through bandana mask
+        ctx.fillStyle = 'white';
+        ctx.beginPath(); ctx.ellipse(px + 20, py + 9, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(px + 30, py + 9, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
+        // Pupils
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(px + 21, py + 9, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + 31, py + 9, 1.5, 0, Math.PI * 2); ctx.fill();
+
+        // Dual katana swords (crossed on back)
+        ctx.strokeStyle = '#90A4AE'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(px + 18, py + 2); ctx.lineTo(px + 32, py + 22); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(px + 32, py + 2); ctx.lineTo(px + 18, py + 22); ctx.stroke();
+        // Katana handles (blue)
+        ctx.strokeStyle = '#1565C0'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(px + 18, py + 2); ctx.lineTo(px + 16, py - 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(px + 32, py + 2); ctx.lineTo(px + 34, py - 2); ctx.stroke();
+
+        // Belt with yellow buckle
+        ctx.fillStyle = '#5D4037';
+        ctx.fillRect(px + 14, py + 36, 22, 4);
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(px + 23, py + 36, 6, 4);
+
+        // Brown elbow pads
+        ctx.fillStyle = '#795548';
+        ctx.fillRect(px + 8, py + 22, 5, 5);
+        ctx.fillRect(px + 37, py + 22, 5, 5);
+
+        // Three-fingered green hands
+        ctx.fillStyle = '#66BB6A';
+        ctx.beginPath(); ctx.arc(px + 8, py + 28, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + 42, py + 28, 4, 0, Math.PI * 2); ctx.fill();
+
+        // Brown knee pads
+        ctx.fillStyle = '#795548';
+        ctx.fillRect(px + 14, py + 44, 5, 4);
+        ctx.fillRect(px + 31, py + 44, 5, 4);
+
+        // Legs (walking animation when grounded)
+        ctx.fillStyle = '#4CAF50';
+        ctx.fillRect(px + 14, py + 40, 7, 12 + legAnim);
+        ctx.fillRect(px + 29, py + 40, 7, 12 - legAnim);
+
+        // Two-toed feet
+        ctx.fillStyle = '#388E3C';
+        ctx.fillRect(px + 12, py + 51 + legAnim, 5, 4);
+        ctx.fillRect(px + 18, py + 51 + legAnim, 5, 4);
+        ctx.fillRect(px + 27, py + 51 - legAnim, 5, 4);
+        ctx.fillRect(px + 33, py + 51 - legAnim, 5, 4);
+
+        ctx.globalAlpha = 1.0;
+
     } else {
         // === SPONGEBOB PLAYER ===
         // Body
@@ -3076,6 +4189,7 @@ function drawEntities() {
         ctx.fillRect(player.x + 8, leftLegY + leftLegH, 10, 5);
         ctx.fillRect(player.x + 28, rightLegY + rightLegH, 10, 5);
     }
+    } // end if (!skipPlayerDraw)
 
     // Obstacles
     obstacles.forEach(o => {
@@ -3116,7 +4230,26 @@ function drawEntities() {
         if (o.type === 'flying') {
             // Flying obstacle (Bird/Bat/Drone)
             let hover = Math.sin(gameTick * 0.2) * 5;
-            if (gameMode === 'bluey') {
+            if (gameMode === 'tmnt') {
+                // Spinning Shuriken (4-pointed star)
+                ctx.save();
+                ctx.translate(o.x + 20, o.y + 15 + hover);
+                ctx.rotate(gameTick * 0.15);
+                ctx.fillStyle = '#90A4AE';
+                for (let s = 0; s < 4; s++) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(-4, -14);
+                    ctx.lineTo(0, -12);
+                    ctx.lineTo(4, -14);
+                    ctx.fill();
+                    ctx.rotate(Math.PI / 2);
+                }
+                // Center circle
+                ctx.fillStyle = '#616161';
+                ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            } else if (gameMode === 'bluey') {
                 // Fruit Bat
                 ctx.fillStyle = '#424242';
                 ctx.beginPath(); ctx.arc(o.x + 20, o.y + 15 + hover, 10, 0, Math.PI * 2); ctx.fill(); // Body
@@ -3135,6 +4268,259 @@ function drawEntities() {
                 ctx.fillRect(o.x + 30, o.y + 5 + hover, 15, 2);
                 ctx.fillStyle = 'red'; // Eye
                 ctx.beginPath(); ctx.arc(o.x + 20, o.y + 15 + hover, 3, 0, Math.PI * 2); ctx.fill();
+            }
+            return;
+        }
+
+        // === NEW ENEMY TYPE DRAWINGS ===
+        if (o.type === 'ground_walker') {
+            let wobble = Math.sin(gameTick * 0.15) * 2;
+            if (gameMode === 'cat') {
+                // Mouse enemy
+                ctx.fillStyle = '#9E9E9E';
+                ctx.beginPath(); ctx.ellipse(o.x + 17, o.y + 20 + wobble, 14, 10, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 4, o.y + 16 + wobble, 7, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#F48FB1';
+                ctx.beginPath(); ctx.arc(o.x + 1, o.y + 10 + wobble, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 7, o.y + 10 + wobble, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#F44336';
+                ctx.beginPath(); ctx.arc(o.x + 2, o.y + 16 + wobble, 2, 0, Math.PI * 2); ctx.fill();
+            } else if (gameMode === 'bluey') {
+                // Gnome
+                ctx.fillStyle = '#E53935';
+                ctx.beginPath(); ctx.moveTo(o.x + 17, o.y + wobble); ctx.lineTo(o.x + 5, o.y + 15 + wobble); ctx.lineTo(o.x + 30, o.y + 15 + wobble); ctx.fill();
+                ctx.fillStyle = '#FFCC80';
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 20 + wobble, 8, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#8D6E63';
+                ctx.fillRect(o.x + 8, o.y + 26 + wobble, 20, 10);
+            } else if (gameMode === 'tmnt') {
+                // Foot Soldier (dark ninja)
+                ctx.fillStyle = '#333';
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 8 + wobble, 7, 0, Math.PI * 2); ctx.fill(); // head
+                ctx.fillRect(o.x + 12, o.y + 15 + wobble, 10, 15); // body
+                // Red headband
+                ctx.fillStyle = '#D32F2F';
+                ctx.fillRect(o.x + 10, o.y + 5 + wobble, 14, 3);
+                // Headband tail
+                ctx.strokeStyle = '#D32F2F'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(o.x + 24, o.y + 7 + wobble);
+                ctx.lineTo(o.x + 30, o.y + 5 + wobble); ctx.stroke();
+                // Eyes
+                ctx.fillStyle = '#FFF';
+                ctx.beginPath(); ctx.arc(o.x + 14, o.y + 8 + wobble, 2, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 20, o.y + 8 + wobble, 2, 0, Math.PI * 2); ctx.fill();
+                // Katana
+                ctx.strokeStyle = '#90A4AE'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(o.x + 25, o.y + 12 + wobble);
+                ctx.lineTo(o.x + 33, o.y + 2 + wobble); ctx.stroke();
+                // Legs
+                ctx.fillStyle = '#333';
+                ctx.fillRect(o.x + 12, o.y + 28 + wobble, 4, 7);
+                ctx.fillRect(o.x + 18, o.y + 28 + wobble, 4, 7);
+            } else if (gameMode === 'scary') {
+                // Zombie hand
+                ctx.fillStyle = '#558B2F';
+                ctx.fillRect(o.x + 14, o.y + wobble, 8, o.height);
+                ctx.fillRect(o.x + 8, o.y + wobble, 6, 12);
+                ctx.fillRect(o.x + 22, o.y + wobble, 6, 14);
+                ctx.fillRect(o.x + 16, o.y + wobble - 4, 5, 8);
+            } else {
+                // Sea urchin (spongebob)
+                ctx.fillStyle = '#4A148C';
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 17 + wobble, 12, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#7B1FA2'; ctx.lineWidth = 2;
+                for (let s = 0; s < 8; s++) {
+                    let a = s * Math.PI / 4;
+                    ctx.beginPath();
+                    ctx.moveTo(o.x + 17 + Math.cos(a) * 10, o.y + 17 + wobble + Math.sin(a) * 10);
+                    ctx.lineTo(o.x + 17 + Math.cos(a) * 18, o.y + 17 + wobble + Math.sin(a) * 18);
+                    ctx.stroke();
+                }
+            }
+            return;
+        }
+
+        if (o.type === 'shooter') {
+            if (gameMode === 'cat') {
+                // Sprinkler
+                ctx.fillStyle = '#4CAF50';
+                ctx.fillRect(o.x + 15, o.y + 10, 10, 30);
+                ctx.fillStyle = '#81C784';
+                ctx.beginPath(); ctx.arc(o.x + 20, o.y + 8, 12, Math.PI, 0); ctx.fill();
+                // Water spray hint
+                if (o.shootTimer > 100) {
+                    ctx.fillStyle = 'rgba(33, 150, 243, 0.3)';
+                    ctx.beginPath(); ctx.arc(o.x + 5, o.y + 15, 4 + (o.shootTimer - 100) * 0.2, 0, Math.PI * 2); ctx.fill();
+                }
+            } else if (gameMode === 'bluey') {
+                // Ball launcher
+                ctx.fillStyle = '#FF9800';
+                ctx.fillRect(o.x + 5, o.y + 15, 30, 20);
+                ctx.fillStyle = '#E65100';
+                ctx.beginPath(); ctx.arc(o.x + 5, o.y + 25, 8, Math.PI * 0.5, Math.PI * 1.5); ctx.fill();
+                ctx.fillStyle = '#FFF';
+                ctx.fillRect(o.x + 12, o.y + 20, 15, 4);
+            } else if (gameMode === 'tmnt') {
+                // Mouser Robot
+                ctx.fillStyle = '#9E9E9E';
+                ctx.beginPath(); ctx.ellipse(o.x + 20, o.y + 20, 14, 12, 0, 0, Math.PI * 2); ctx.fill(); // body
+                // Red eye
+                ctx.fillStyle = '#F44336';
+                ctx.beginPath(); ctx.arc(o.x + 15, o.y + 16, 3, 0, Math.PI * 2); ctx.fill();
+                // Jaw (open, with teeth)
+                ctx.fillStyle = '#757575';
+                ctx.beginPath(); ctx.moveTo(o.x + 8, o.y + 22); ctx.lineTo(o.x + 4, o.y + 32);
+                ctx.lineTo(o.x + 28, o.y + 32); ctx.lineTo(o.x + 24, o.y + 22); ctx.fill();
+                // Teeth
+                ctx.fillStyle = '#FFF';
+                for (let t = 0; t < 4; t++) {
+                    ctx.fillRect(o.x + 8 + t * 5, o.y + 22, 2, 4);
+                }
+                // Shoot indicator
+                if (o.shootTimer > 100) {
+                    ctx.fillStyle = 'rgba(244, 67, 54, 0.3)';
+                    ctx.beginPath(); ctx.arc(o.x + 5, o.y + 20, 4 + (o.shootTimer - 100) * 0.2, 0, Math.PI * 2); ctx.fill();
+                }
+            } else if (gameMode === 'scary') {
+                // Skeleton archer
+                ctx.fillStyle = '#E0E0E0';
+                ctx.beginPath(); ctx.arc(o.x + 20, o.y + 8, 8, 0, Math.PI * 2); ctx.fill();
+                ctx.fillRect(o.x + 17, o.y + 16, 6, 18);
+                ctx.fillStyle = '#000';
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 7, 2, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 23, o.y + 7, 2, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#8D6E63'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(o.x + 8, o.y + 15, 12, -0.5, 0.5); ctx.stroke();
+            } else {
+                // Cannon (spongebob)
+                ctx.fillStyle = '#546E7A';
+                ctx.fillRect(o.x + 5, o.y + 10, 30, 20);
+                ctx.fillStyle = '#37474F';
+                ctx.beginPath(); ctx.arc(o.x + 5, o.y + 20, 10, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#263238';
+                ctx.fillRect(o.x + 0, o.y + 16, 10, 8);
+            }
+            return;
+        }
+
+        if (o.type === 'falling') {
+            let shake = o.triggered ? Math.sin(gameTick * 0.5) * 2 : 0;
+            if (gameMode === 'cat') {
+                // Flower pot
+                ctx.fillStyle = '#E65100';
+                ctx.beginPath(); ctx.moveTo(o.x + 2 + shake, o.y + 10); ctx.lineTo(o.x + 8 + shake, o.y + 35);
+                ctx.lineTo(o.x + 27 + shake, o.y + 35); ctx.lineTo(o.x + 33 + shake, o.y + 10); ctx.fill();
+                ctx.fillStyle = '#4CAF50';
+                ctx.beginPath(); ctx.arc(o.x + 17 + shake, o.y + 5, 10, Math.PI, 0); ctx.fill();
+            } else if (gameMode === 'bluey') {
+                // Coconut
+                ctx.fillStyle = '#5D4037';
+                ctx.beginPath(); ctx.arc(o.x + 17 + shake, o.y + 17, 14, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#3E2723';
+                ctx.beginPath(); ctx.arc(o.x + 12 + shake, o.y + 14, 2, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 22 + shake, o.y + 14, 2, 0, Math.PI * 2); ctx.fill();
+            } else if (gameMode === 'tmnt') {
+                // Manhole Cover
+                ctx.fillStyle = '#757575';
+                ctx.beginPath(); ctx.arc(o.x + 17 + shake, o.y + 17, 14, 0, Math.PI * 2); ctx.fill();
+                // Cross pattern
+                ctx.strokeStyle = '#616161'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(o.x + 7 + shake, o.y + 17); ctx.lineTo(o.x + 27 + shake, o.y + 17); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(o.x + 17 + shake, o.y + 7); ctx.lineTo(o.x + 17 + shake, o.y + 27); ctx.stroke();
+                // Rim
+                ctx.strokeStyle = '#9E9E9E'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(o.x + 17 + shake, o.y + 17, 14, 0, Math.PI * 2); ctx.stroke();
+            } else if (gameMode === 'scary') {
+                // Chandelier
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(o.x + 14 + shake, o.y, 7, 8);
+                ctx.fillStyle = '#B0BEC5';
+                ctx.beginPath(); ctx.moveTo(o.x + 5 + shake, o.y + 25); ctx.lineTo(o.x + 17 + shake, o.y + 8);
+                ctx.lineTo(o.x + 30 + shake, o.y + 25); ctx.fill();
+                ctx.fillStyle = '#FFF9C4';
+                for (let f = 0; f < 3; f++) {
+                    ctx.beginPath(); ctx.arc(o.x + 8 + f * 9 + shake, o.y + 25, 3, 0, Math.PI * 2); ctx.fill();
+                }
+            } else {
+                // Anchor (spongebob)
+                ctx.fillStyle = '#546E7A';
+                ctx.fillRect(o.x + 13 + shake, o.y, 9, 28);
+                ctx.beginPath(); ctx.arc(o.x + 17 + shake, o.y + 28, 10, 0, Math.PI); ctx.fill();
+                ctx.fillRect(o.x + 5 + shake, o.y + 8, 25, 5);
+            }
+            // Warning indicator if not triggered
+            if (!o.triggered) {
+                ctx.fillStyle = 'rgba(255, 0, 0, ' + (0.3 + Math.sin(gameTick * 0.1) * 0.2) + ')';
+                ctx.fillRect(o.x + 14, o.y + 35, 7, 2);
+            }
+            return;
+        }
+
+        if (o.type === 'bouncer') {
+            let squish = Math.abs(Math.sin(o.bouncePhase)) * 0.2;
+            if (gameMode === 'cat') {
+                // Yarn ball
+                ctx.fillStyle = '#E91E63';
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 17, 14, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#F48FB1'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 17, 8, 0, Math.PI * 1.5); ctx.stroke();
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 17, 4, Math.PI, Math.PI * 2.5); ctx.stroke();
+            } else if (gameMode === 'bluey') {
+                // Basketball
+                ctx.fillStyle = '#FF6D00';
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 17, 14, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#BF360C'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 17, 14, 0, Math.PI * 2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(o.x + 3, o.y + 17); ctx.lineTo(o.x + 31, o.y + 17); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(o.x + 17, o.y + 3); ctx.lineTo(o.x + 17, o.y + 31); ctx.stroke();
+            } else if (gameMode === 'tmnt') {
+                // Krang Droid (android body with pink brain in stomach)
+                ctx.fillStyle = '#9E9E9E';
+                ctx.fillRect(o.x + 5, o.y + 2, 24, 30); // body
+                // Head
+                ctx.fillStyle = '#757575';
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 2, 8, Math.PI, 0); ctx.fill();
+                // Eyes
+                ctx.fillStyle = '#F44336';
+                ctx.beginPath(); ctx.arc(o.x + 13, o.y, 2, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 21, o.y, 2, 0, Math.PI * 2); ctx.fill();
+                // Stomach cavity with Krang (pink brain)
+                ctx.fillStyle = '#333';
+                ctx.fillRect(o.x + 9, o.y + 12, 16, 12);
+                ctx.fillStyle = '#F48FB1';
+                ctx.beginPath(); ctx.ellipse(o.x + 17, o.y + 18, 6, 5, 0, 0, Math.PI * 2); ctx.fill();
+                // Brain folds
+                ctx.strokeStyle = '#EC407A'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 17, 3, 0, Math.PI); ctx.stroke();
+                // Arms
+                ctx.fillStyle = '#9E9E9E';
+                ctx.fillRect(o.x + 1, o.y + 8, 5, 14);
+                ctx.fillRect(o.x + 28, o.y + 8, 5, 14);
+            } else if (gameMode === 'scary') {
+                // Floating skull
+                ctx.fillStyle = '#E0E0E0';
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 14, 12, 0, Math.PI * 2); ctx.fill();
+                ctx.fillRect(o.x + 10, o.y + 22, 14, 8);
+                ctx.fillStyle = '#000';
+                ctx.beginPath(); ctx.arc(o.x + 13, o.y + 13, 3, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 21, o.y + 13, 3, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#F44336';
+                ctx.beginPath(); ctx.arc(o.x + 13, o.y + 13, 1.5, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(o.x + 21, o.y + 13, 1.5, 0, Math.PI * 2); ctx.fill();
+            } else {
+                // Jellyfish (spongebob)
+                ctx.fillStyle = '#FF69B4';
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 12, 12, Math.PI, 0); ctx.fill();
+                ctx.fillStyle = '#FFB6C1';
+                ctx.beginPath(); ctx.arc(o.x + 17, o.y + 12, 7, Math.PI, 0); ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 105, 180, 0.6)'; ctx.lineWidth = 1.5;
+                for (let t = 0; t < 4; t++) {
+                    ctx.beginPath(); ctx.moveTo(o.x + 8 + t * 6, o.y + 12);
+                    for (let s = 0; s < 15; s += 3) {
+                        ctx.lineTo(o.x + 8 + t * 6 + Math.sin(gameTick * 0.06 + t + s * 0.4) * 3, o.y + 12 + s);
+                    }
+                    ctx.stroke();
+                }
             }
             return;
         }
@@ -3167,6 +4553,13 @@ function drawEntities() {
             blockColor = '#795548'; topColor = '#A1887F'; // Default wood/brick
             if (currentScene === 'BACKYARD') { blockColor = '#8D6E63'; topColor = '#A1887F'; }
             if (currentScene === 'PLAYGROUND') { blockColor = '#FFB74D'; topColor = '#FFCC80'; }
+        }
+
+        // TMNT World obstacle colors
+        if (gameMode === 'tmnt') {
+            blockColor = '#37474F'; topColor = '#546E7A';
+            if (currentScene === 'TECHNODROME') { blockColor = '#616161'; topColor = '#757575'; }
+            if (currentScene === 'DIMENSION_X') { blockColor = '#6A1B9A'; topColor = '#9C27B0'; }
         }
 
         // Scary World obstacle colors (Dark/Stone)
@@ -3215,6 +4608,41 @@ function drawEntities() {
             ctx.beginPath(); ctx.arc(c.x + 11, c.y + 12, 3, 0, Math.PI * 2); ctx.fill(); // Left Eye
             ctx.beginPath(); ctx.arc(c.x + 19, c.y + 12, 3, 0, Math.PI * 2); ctx.fill(); // Right Eye
             ctx.beginPath(); ctx.moveTo(c.x + 15, c.y + 16); ctx.lineTo(c.x + 13, c.y + 20); ctx.lineTo(c.x + 17, c.y + 20); ctx.fill(); // Nose
+        } else if (c.type === 'pizza') {
+            // Pizza slice
+            ctx.fillStyle = '#FFD54F'; // Cheese
+            ctx.beginPath(); ctx.moveTo(c.x + 15, c.y + 5); ctx.lineTo(c.x + 2, c.y + 25); ctx.lineTo(c.x + 28, c.y + 25); ctx.fill();
+            // Crust
+            ctx.fillStyle = '#A1887F';
+            ctx.beginPath(); ctx.moveTo(c.x + 2, c.y + 25); ctx.lineTo(c.x + 28, c.y + 25);
+            ctx.lineTo(c.x + 26, c.y + 28); ctx.lineTo(c.x + 4, c.y + 28); ctx.fill();
+            // Pepperoni
+            ctx.fillStyle = '#E53935';
+            ctx.beginPath(); ctx.arc(c.x + 12, c.y + 16, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x + 20, c.y + 18, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(c.x + 15, c.y + 22, 2, 0, Math.PI * 2); ctx.fill();
+            // Shine
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.beginPath(); ctx.ellipse(c.x + 14, c.y + 12, 4, 2, -0.3, 0, Math.PI * 2); ctx.fill();
+        } else if (c.isRiddle) {
+            // Riddle collectible - glowing purple orb with golden "?"
+            let glow = 0.5 + Math.sin(gameTick * 0.1) * 0.3;
+            ctx.save();
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = 'rgba(156, 39, 176, ' + glow + ')';
+            ctx.fillStyle = '#9C27B0';
+            ctx.beginPath(); ctx.arc(c.x + 15, c.y + 15, 13, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0;
+            // Inner glow
+            ctx.fillStyle = '#CE93D8';
+            ctx.beginPath(); ctx.arc(c.x + 15, c.y + 15, 8, 0, Math.PI * 2); ctx.fill();
+            // Golden "?"
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 16px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('?', c.x + 15, c.y + 20);
+            ctx.textAlign = 'start';
+            ctx.restore();
         } else {
             // Krabby Patty for SpongeBob mode
             ctx.fillStyle = '#F4A460'; ctx.fillRect(c.x, c.y + 20, c.width, 10);
@@ -3223,6 +4651,45 @@ function drawEntities() {
             ctx.fillStyle = '#F4A460'; ctx.beginPath(); ctx.arc(c.x + c.width / 2, c.y + 10, c.width / 2, Math.PI, 0); ctx.fill();
         }
     });
+
+    // Enemy projectiles
+    projectiles.forEach(p => {
+        let projColor = '#FF5722';
+        if (gameMode === 'cat') projColor = '#2196F3';
+        else if (gameMode === 'bluey') projColor = '#FF9800';
+        else if (gameMode === 'scary') projColor = '#B0BEC5';
+        else if (gameMode === 'tmnt') projColor = '#76FF03';
+        ctx.fillStyle = projColor;
+        ctx.beginPath(); ctx.arc(p.x + 4, p.y + 4, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.beginPath(); ctx.arc(p.x + 3, p.y + 3, 2, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // Player projectiles (shooting power-up)
+    playerProjectiles.forEach(p => {
+        ctx.fillStyle = '#FFD700';
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = '#FFD700';
+        ctx.beginPath(); ctx.ellipse(p.x + 5, p.y + 4, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+    });
+
+    // Player glow effect during active power-up
+    if (activePowerUp) {
+        let glowColor = '#FFD700';
+        if (activePowerUp === 'triple_jump') glowColor = '#00E5FF';
+        else if (activePowerUp === 'shooting') glowColor = '#FF6D00';
+        else if (activePowerUp === 'invulnerable') glowColor = '#76FF03';
+
+        ctx.save();
+        ctx.shadowBlur = 12 + Math.sin(gameTick * 0.15) * 5;
+        ctx.shadowColor = glowColor;
+        ctx.strokeStyle = glowColor;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.5 + Math.sin(gameTick * 0.1) * 0.2;
+        ctx.strokeRect(player.x - 3, player.y - 3, player.width + 6, player.height + 6);
+        ctx.restore();
+    }
 }
 
 function drawUI() {
@@ -3232,11 +4699,10 @@ function drawUI() {
     ctx.fillText(`Score: ${score}`, 20, 40);
 
     // Lives (Below Score - No overlap)
-    // Use a filled heart path instead of emoji for consistency
     ctx.fillStyle = '#FF0000';
     for (let i = 0; i < lives; i++) {
-        let hx = 30 + i * 35; // Spaced out
-        let hy = 70; // Lower y position
+        let hx = 30 + i * 35;
+        let hy = 70;
 
         ctx.save();
         ctx.translate(hx, hy);
@@ -3247,10 +4713,28 @@ function drawUI() {
         ctx.fill();
         ctx.restore();
 
-        // Backup emoji just in case path is small
         ctx.font = '24px Arial';
         ctx.fillText('❤️', 20 + i * 35, 80);
     }
+
+    // Difficulty Tier Indicator (Top Right)
+    let tierLabel, tierColor;
+    if (difficultyTier === 0) { tierLabel = 'CALM'; tierColor = '#4CAF50'; }
+    else if (difficultyTier === 1) { tierLabel = 'RISING'; tierColor = '#FFC107'; }
+    else if (difficultyTier === 2) { tierLabel = 'DANGER'; tierColor = '#FF5722'; }
+    else { tierLabel = 'CHAOS'; tierColor = '#F44336'; }
+
+    ctx.font = 'bold 16px monospace';
+    ctx.fillStyle = tierColor;
+    let tierX = canvas.width - 90;
+    ctx.fillText(tierLabel, tierX, 35);
+
+    // Difficulty bar
+    let barW = 70, barH = 6;
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(tierX, 40, barW, barH);
+    ctx.fillStyle = tierColor;
+    ctx.fillRect(tierX, 40, barW * Math.min(difficultyMultiplier / 3.0, 1), barH);
 }
 
 // ═══ QUIZ SYSTEM ═══
@@ -3350,6 +4834,24 @@ function generatePictureQuestion() {
         choices: shuffleArray(choices),
         correctAnswer: correctLabel,
         picture: correctWord // always English key for drawing
+    };
+}
+
+function generateTriviaQuestion() {
+    let pool, isHebrew;
+    if (gameLevel === 'hard') {
+        pool = hardTrivia;
+        isHebrew = false;
+    } else {
+        pool = hebrewTrivia;
+        isHebrew = true;
+    }
+    let item = pool[Math.floor(Math.random() * pool.length)];
+    let choices = [item.a, ...item.wrong];
+    return {
+        question: item.q,
+        choices: shuffleArray(choices),
+        correctAnswer: item.a
     };
 }
 
@@ -3775,11 +5277,20 @@ function playHurtSound() {
     }
 }
 
+let quizTimerInterval = null;
+let quizTimeLeft = 0;
+let quizTimeMax = 0;
+const quizTimerBar = document.getElementById('quiz-timer-bar');
+const quizTimerFill = document.getElementById('quiz-timer-fill');
+
 function showQuiz(quizType, damageSource) {
     quizActive = true;
 
     if (quizType === 'math') {
         currentQuiz = generateMathQuestion();
+        quizCanvas.classList.add('hidden');
+    } else if (quizType === 'trivia') {
+        currentQuiz = generateTriviaQuestion();
         quizCanvas.classList.add('hidden');
     } else {
         currentQuiz = generatePictureQuestion();
@@ -3804,10 +5315,81 @@ function showQuiz(quizType, damageSource) {
         btn.disabled = false;
     });
 
+    // Quiz timer for hard level
+    if (quizTimerInterval) clearInterval(quizTimerInterval);
+    if (gameLevel === 'hard') {
+        quizTimeMax = quizType === 'math' ? 15 : 20; // seconds
+        quizTimeLeft = quizTimeMax * 10; // tenths of a second for smooth bar
+        quizTimerBar.classList.remove('hidden');
+        quizTimerFill.style.width = '100%';
+        quizTimerFill.className = '';
+
+        quizTimerInterval = setInterval(() => {
+            quizTimeLeft--;
+            let ratio = quizTimeLeft / (quizTimeMax * 10);
+            quizTimerFill.style.width = (ratio * 100) + '%';
+
+            // Color changes
+            if (ratio <= 0.25) {
+                quizTimerFill.className = 'critical';
+            } else if (ratio <= 0.5) {
+                quizTimerFill.className = 'warning';
+            } else {
+                quizTimerFill.className = '';
+            }
+
+            // Tick sound in last 5 seconds
+            if (quizTimeLeft <= 50 && quizTimeLeft % 10 === 0 && quizTimeLeft > 0) {
+                playSound('quiz_tick');
+            }
+
+            if (quizTimeLeft <= 0) {
+                clearInterval(quizTimerInterval);
+                quizTimerInterval = null;
+                // Time's up — auto-fail
+                quizTimerFill.style.width = '0%';
+                playSound('quiz_timeout');
+                quizAnswerBtns.forEach((btn, i) => {
+                    btn.disabled = true;
+                    if (currentQuiz.choices[i] === currentQuiz.correctAnswer) {
+                        btn.classList.add('correct');
+                    }
+                });
+                lives--;
+                playHurtSound();
+                quizResult.textContent = "TIME'S UP! -1 Life. Answer: " + currentQuiz.correctAnswer;
+                quizResult.style.color = '#FF9800';
+                setTimeout(() => {
+                    quizOverlay.classList.add('hidden');
+                    quizTimerBar.classList.add('hidden');
+                    quizActive = false;
+                    currentQuiz = null;
+                    if (lives <= 0) {
+                        showGameOver();
+                    }
+                }, 2000);
+            }
+        }, 100); // update every 100ms
+    } else {
+        quizTimerBar.classList.add('hidden');
+    }
+
     quizOverlay.classList.remove('hidden');
 }
 
 function handleQuizAnswer(selectedIndex) {
+    // Delegate to riddle handler if a riddle is active
+    if (riddleActive) {
+        handleRiddleAnswer(selectedIndex);
+        return;
+    }
+
+    // Stop the quiz timer
+    if (quizTimerInterval) {
+        clearInterval(quizTimerInterval);
+        quizTimerInterval = null;
+    }
+
     let selected = currentQuiz.choices[selectedIndex];
     let correct = currentQuiz.correctAnswer;
     let isCorrect = selected === correct;
@@ -3824,32 +5406,182 @@ function handleQuizAnswer(selectedIndex) {
     });
 
     if (isCorrect) {
-        score += 100;
-        quizResult.textContent = gameLevel === 'medium' ? '!נכון! +100 בלי נזק' : 'CORRECT! +100 No damage!';
+        // Bonus points for fast answers in hard mode
+        let bonus = 100;
+        if (gameLevel === 'hard' && quizTimeMax > 0) {
+            let timeRatio = quizTimeLeft / (quizTimeMax * 10);
+            let speedBonus = Math.floor(timeRatio * 50); // up to +50 for fast answer
+            bonus += speedBonus;
+        }
+        score += bonus;
+        let bonusText = bonus > 100 ? `+${bonus}! FAST!` : '+100!';
+        quizResult.textContent = `CORRECT! +${bonus} No damage!`;
         quizResult.style.color = '#4CAF50';
+        // Celebration animation
+        spawnParticles(canvas.width / 2, canvas.height / 2, 'correct_answer');
+        spawnFloatingText(canvas.width / 2, canvas.height / 2 - 40, bonusText, '#69F0AE', 36);
+        triggerScreenFlash('#69F0AE', 20);
+        playSound('powerup');
     } else {
-        // Wrong answer: take the damage
         lives--;
         playHurtSound();
-        quizResult.textContent = gameLevel === 'medium'
-            ? 'לא נכון! -1 חיים. תשובה: ' + correct
-            : 'WRONG! -1 Life. Answer: ' + correct;
+        quizResult.textContent = 'WRONG! -1 Life. Answer: ' + correct;
         quizResult.style.color = '#F44336';
     }
 
     setTimeout(() => {
         quizOverlay.classList.add('hidden');
+        quizTimerBar.classList.add('hidden');
         quizActive = false;
         currentQuiz = null;
 
-        // Check game over after quiz closes (if wrong answer killed them)
         if (lives <= 0) {
-            gameState = 'GAMEOVER';
-            gameOverScreen.classList.remove('hidden');
-            finalScoreDisplay.innerText = score;
-            playSound('gameover');
-            stopMusic();
+            showGameOver();
         }
+    }, 2000);
+}
+
+// === RIDDLE SYSTEM ===
+
+// Riddle pool now loaded from external files (hebrewRiddles / hardRiddles)
+// Fallback pool for easy mode or if external files fail to load
+const fallbackRiddlePool = [
+    { q: "I have hands but can't clap. What am I?", a: "Clock", wrong: ["Glove", "Statue"] },
+    { q: "I have teeth but can't bite. What am I?", a: "Comb", wrong: ["Shark", "Zipper"] },
+    { q: "What has keys but no locks?", a: "Piano", wrong: ["Map", "Phone"] },
+    { q: "What gets wetter the more it dries?", a: "Towel", wrong: ["Rain", "Sponge"] },
+    { q: "What has a neck but no head?", a: "Bottle", wrong: ["Giraffe", "Shirt"] },
+    { q: "What has words but never speaks?", a: "Book", wrong: ["Phone", "Radio"] },
+    { q: "What goes up but never comes down?", a: "Age", wrong: ["Balloon", "Rocket"] },
+    { q: "What building has the most stories?", a: "Library", wrong: ["Skyscraper", "Castle"] },
+];
+
+function generateRiddle() {
+    let pool;
+    if (gameLevel === 'hard' && typeof hardRiddles !== 'undefined') {
+        pool = hardRiddles;
+    } else if (gameLevel === 'medium' && typeof hebrewRiddles !== 'undefined') {
+        pool = hebrewRiddles;
+    } else {
+        pool = fallbackRiddlePool;
+    }
+    let riddle = pool[Math.floor(Math.random() * pool.length)];
+    let choices = [riddle.a, ...riddle.wrong];
+    // Shuffle
+    for (let i = choices.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        [choices[i], choices[j]] = [choices[j], choices[i]];
+    }
+    return {
+        question: riddle.q,
+        choices: choices,
+        correctAnswer: riddle.a
+    };
+}
+
+function showRiddle() {
+    riddleActive = true;
+    riddleTimer = riddleMaxTime;
+    quizActive = true;
+
+    currentRiddle = generateRiddle();
+
+    quizCanvas.classList.add('hidden');
+    let isHebrew = gameLevel === 'medium';
+    quizQuestionText.style.direction = isHebrew ? 'rtl' : 'ltr';
+    quizResult.style.direction = isHebrew ? 'rtl' : 'ltr';
+
+    quizQuestionText.textContent = currentRiddle.question;
+    quizResult.textContent = '';
+    quizResult.style.color = '';
+
+    // Show only 3 buttons for riddles
+    quizAnswerBtns.forEach((btn, i) => {
+        if (i < 3) {
+            btn.textContent = currentRiddle.choices[i];
+            btn.className = 'quiz-answer-btn';
+            btn.disabled = false;
+            btn.style.display = '';
+            btn.style.direction = isHebrew ? 'rtl' : 'ltr';
+        } else {
+            btn.style.display = 'none';
+        }
+    });
+
+    quizOverlay.classList.remove('hidden');
+
+    // Start riddle countdown
+    if (window.riddleCountdown) clearInterval(window.riddleCountdown);
+    window.riddleCountdown = setInterval(() => {
+        if (!riddleActive) { clearInterval(window.riddleCountdown); return; }
+        riddleTimer -= 6; // roughly 10fps update rate for the timer
+        if (riddleTimer <= 0) {
+            clearInterval(window.riddleCountdown);
+            // Auto-dismiss - no reward
+            quizResult.textContent = "Time's up! No power-up.";
+            quizResult.style.color = '#FF9800';
+            quizAnswerBtns.forEach(btn => btn.disabled = true);
+            setTimeout(() => {
+                quizOverlay.classList.add('hidden');
+                quizActive = false;
+                riddleActive = false;
+                currentRiddle = null;
+                // Restore 4th button
+                quizAnswerBtns.forEach(btn => btn.style.display = '');
+            }, 1500);
+        }
+        // Update countdown display in result area
+        if (riddleActive && riddleTimer > 0) {
+            let secs = Math.ceil(riddleTimer / 60);
+            quizResult.textContent = 'Time: ' + secs + 's';
+            quizResult.style.color = riddleTimer < 180 ? '#F44336' : '#FFC107';
+        }
+    }, 100);
+}
+
+function handleRiddleAnswer(selectedIndex) {
+    if (window.riddleCountdown) clearInterval(window.riddleCountdown);
+
+    let selected = currentRiddle.choices[selectedIndex];
+    let correct = currentRiddle.correctAnswer;
+    let isCorrect = selected === correct;
+
+    quizAnswerBtns.forEach((btn, i) => {
+        btn.disabled = true;
+        if (i < 3 && currentRiddle.choices[i] === correct) {
+            btn.classList.add('correct');
+        }
+        if (i === selectedIndex && !isCorrect) {
+            btn.classList.add('wrong');
+        }
+    });
+
+    if (isCorrect) {
+        // Grant random power-up
+        let powerUps = ['triple_jump', 'shooting', 'invulnerable'];
+        activePowerUp = powerUps[Math.floor(Math.random() * powerUps.length)];
+        powerUpTimer = powerUpMaxTimer;
+        playSound('powerup');
+
+        let label = activePowerUp.replace('_', ' ').toUpperCase();
+        quizResult.textContent = 'CORRECT! Power-up: ' + label + '!';
+        quizResult.style.color = '#4CAF50';
+        // Celebration animation
+        spawnParticles(canvas.width / 2, canvas.height / 2, 'correct_answer');
+        spawnFloatingText(canvas.width / 2, canvas.height / 2 - 40, 'POWER UP!', '#76FF03', 32);
+        triggerScreenFlash('#76FF03', 20);
+    } else {
+        quizResult.textContent = 'Wrong! Answer: ' + correct + '. No penalty.';
+        quizResult.style.color = '#FF9800';
+    }
+
+    setTimeout(() => {
+        quizOverlay.classList.add('hidden');
+        quizActive = false;
+        riddleActive = false;
+        currentRiddle = null;
+        // Restore 4th button
+        quizAnswerBtns.forEach(btn => btn.style.display = '');
     }, 2000);
 }
 

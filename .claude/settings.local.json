@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Ground obstacles, add pits, double jump, Bluey characters, fix mobile landscape\n\n- Fix obstacles floating above ground \\(base Y 350→400 to sit on ground\\)\n- Add pit obstacles: gaps in ground that cost a life if fallen into\n- Add double jump: second mid-air jump with slightly less power\n- Fix key repeat burning both jumps instantly\n- Add 6 new Bluey background characters \\(Muffin, Socks, Mackenzie, Rusty, Judo, Chloe\\)\n- Add drawing code for all Bluey bg characters and creatures \\(were invisible\\)\n- Fix mobile landscape black bars by stretching game container to 100vw\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Add difficulty levels with quiz system on obstacle/pit hits\n\nAdds Easy/Medium/Hard level selection after world pick. On Medium and\nHard, hitting an obstacle or falling into a pit triggers a quiz instead\nof instant damage — correct answer avoids the hit and awards +100 pts,\nwrong answer loses a life. Easy plays unchanged. Medium uses Hebrew\nquestions and labels; Hard uses English. Includes math and picture-\nidentification question types with 32 hand-drawn canvas illustrations.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
+    ]
+  }
+}
